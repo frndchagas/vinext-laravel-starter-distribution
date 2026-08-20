@@ -17,7 +17,7 @@
   "dependencies": {
     "@base-ui/react": "1.7.0",
     "@icons-pack/react-simple-icons": "13.15.1",
-    "@tanstack/react-query": "5.90.5",
+    "@tanstack/react-query": "5.101.4",
     "@vinext-ai-starter/api-client": "workspace:*",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
