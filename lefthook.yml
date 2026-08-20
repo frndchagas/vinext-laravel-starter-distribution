@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      run: bun run format:check
+    secrets:
+      run: command -v gitleaks >/dev/null 2>&1 && gitleaks protect --staged --redact || echo "gitleaks not installed locally; CI enforces it"
+
+pre-push:
+  commands:
+    check:
+      run: bun run check

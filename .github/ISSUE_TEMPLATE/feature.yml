@@ -1,0 +1,35 @@
+name: Feature proposal
+description: Propose a focused improvement to the reusable foundation.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What recurring starter-kit problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Explain the smallest reusable change and its expected developer experience.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and scope
+      description: What can remain a recipe or application-specific extension?
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Architecture boundaries
+      options:
+        - label: Laravel remains the source of truth for identity and persisted domain state.
+          required: true
+        - label: Public HTTP changes include a contract and generated-client plan.
+          required: true

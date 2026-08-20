@@ -1,0 +1,65 @@
+asyncapi: 3.1.0
+info:
+  title: Vinext AI Starter Realtime
+  version: 1.0.0
+  description: >
+    Contracted realtime channels and messages delivered by Laravel Reverb
+    through the same-origin /ws path. WebSocket delivery is not guaranteed;
+    duplicates and loss are possible. State persisted behind the HTTP API is
+    always the source of truth, and consumers re-fetch active resources after
+    a reconnection.
+servers:
+  reverb:
+    host: localhost:13000
+    pathname: /ws
+    protocol: ws
+    description: Reverb behind the same-origin proxy. Private channels are authorized through POST /api/broadcasting/auth with the Laravel session.
+channels:
+  userSession:
+    address: private-users.{userId}
+    description: Private connectivity channel for the verified User. It currently carries no contracted messages.
+    parameters:
+      userId:
+        description: Opaque User identifier.
+  taskStatus:
+    address: private-tasks.{taskId}
+    description: Private channel of one Task. Only the owning verified User is authorized.
+    parameters:
+      taskId:
+        description: Opaque Task identifier.
+    messages:
+      taskStatusChanged:
+        $ref: '#/components/messages/taskStatusChanged'
+operations:
+  receiveTaskStatusChanged:
+    action: receive
+    channel:
+      $ref: '#/channels/taskStatus'
+    summary: A Task changed state. Invalidate or update the corresponding query.
+components:
+  messages:
+    taskStatusChanged:
+      name: TaskStatusChanged
+      title: Task status changed
+      summary: Emitted after a persisted processing, completed or failed transition, only after the database commit.
+      payload:
+        type: object
+        additionalProperties: false
+        required: [id, state, version, occurred_at, correlation_id]
+        properties:
+          id:
+            type: string
+            description: Opaque Task identifier.
+          state:
+            type: string
+            enum: [queued, processing, completed, failed]
+          version:
+            type: integer
+            minimum: 1
+            description: Increases by one on every persisted transition. Consumers must ignore versions older than the newest one seen.
+          occurred_at:
+            type: string
+            format: date-time
+          correlation_id:
+            type: string
+            description: Correlation ID of the request that started the Task.

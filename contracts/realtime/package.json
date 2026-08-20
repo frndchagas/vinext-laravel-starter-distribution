@@ -1,0 +1,12 @@
+{
+  "name": "@vinext-ai-starter/realtime-contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "bun run validate.mjs"
+  },
+  "devDependencies": {
+    "@asyncapi/parser": "3.6.3"
+  }
+}

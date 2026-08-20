@@ -1,0 +1,42 @@
+# Asynchronous workflow
+
+`Task` is the reference path for work that cannot finish inside one HTTP request. PostgreSQL remains the source of truth; Reverb only notifies the browser that state may have changed.
+
+## Create once
+
+`POST /api/v1/tasks` requires an `Idempotency-Key`. Laravel stores the validated input hash, response and Task identifier under a unique User, operation and key tuple.
+
+Repeating the key with the same input returns the first response without dispatching another job. Reusing it with different input returns `409 idempotency_key_reused`.
+
+The Task, idempotency record and job dispatch share a transaction boundary. The job is queued after commit. Rolling back an enclosing transaction leaves no Task, idempotency record or database queue row.
+
+## Process safely
+
+`ProcessTask` has three attempts, a 120-second timeout and backoff delays of 10 and 60 seconds. Horizon uses a 125-second supervisor timeout, and Redis uses a 150-second `retry_after` value.
+
+`ShouldBeUnique` reduces duplicate dispatches but is not the correctness boundary. Each serialized job carries a processing token. The atomic transition from `queued` to `processing` stores that token. A retry with the same token may continue; another worker exits without completing or failing the Task.
+
+External providers should receive an idempotency key derived from the Task identifier when they support one. The starter cannot promise exactly-once effects across a provider call and a process crash.
+
+## Notify after persistence
+
+`TaskStatusChanged` is dispatched after the processing, completed or failed state is persisted. The payload contains Task ID, state, version, occurrence time and correlation ID. There is no event for initial creation in the `queued` state.
+
+The contracted Reverb channel is private. Laravel authorizes the owning verified User before Echo can subscribe.
+
+WebSocket delivery has no end-to-end guarantee. A client may miss or receive duplicate notifications. The frontend therefore invalidates the Task list after an event and refetches active Tasks when Echo reconnects.
+
+## Contracts and proofs
+
+TypeSpec defines the HTTP resource and errors. AsyncAPI defines the observable Task channel and message. CI validates both documents but only the HTTP pipeline has generated drift detection.
+
+Tests currently prove:
+
+- idempotent replay and conflicting reuse;
+- rollback without persisted work or queued jobs;
+- processing-token ownership and retry behavior;
+- final states are not processed again;
+- private-channel ownership and verified-email checks;
+- browser recovery after a temporary connection loss.
+
+The suite does not claim a real operating-system timeout test or a stress test with parallel HTTP clients.

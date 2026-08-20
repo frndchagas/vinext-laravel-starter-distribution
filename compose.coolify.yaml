@@ -1,0 +1,226 @@
+name: vinext-ai-starter-production
+
+x-api-image: &api-image
+  build:
+    context: .
+    dockerfile: infra/docker/api/Dockerfile
+  image: vinext-ai-starter-api:${IMAGE_TAG:-local}
+
+x-api-environment: &api-environment
+  APP_DEBUG: "false"
+  APP_ENV: production
+  APP_KEY: ${APP_KEY:?Set APP_KEY}
+  APP_NAME: ${APP_NAME:-Vinext AI Starter}
+  APP_URL: ${APP_URL:?Set APP_URL}
+  BROADCAST_CONNECTION: reverb
+  CACHE_STORE: redis
+  DB_CONNECTION: pgsql
+  DB_DATABASE: starter
+  DB_HOST: postgres
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+  DB_PORT: "5432"
+  DB_USERNAME: starter
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-null}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Vinext AI Starter}
+  MAIL_HOST: ${MAIL_HOST:-localhost}
+  MAIL_MAILER: ${MAIL_MAILER:-log}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-null}
+  MAIL_PORT: ${MAIL_PORT:-1025}
+  MAIL_USERNAME: ${MAIL_USERNAME:-null}
+  QUEUE_CONNECTION: redis
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  REVERB_ALLOWED_ORIGINS: ${APP_HOST:?Set APP_HOST}
+  REVERB_APP_ID: ${REVERB_APP_ID:?Set REVERB_APP_ID}
+  REVERB_APP_KEY: ${REVERB_APP_KEY:?Set REVERB_APP_KEY}
+  REVERB_APP_SECRET: ${REVERB_APP_SECRET:?Set REVERB_APP_SECRET}
+  REVERB_HOST: reverb
+  REVERB_PORT: "8080"
+  REVERB_SCHEME: http
+  REVERB_SERVER_HOST: 0.0.0.0
+  REVERB_SERVER_PORT: "8080"
+  SANCTUM_STATEFUL_DOMAINS: ${APP_HOST:?Set APP_HOST}
+  SESSION_DOMAIN: ${SESSION_DOMAIN-}
+  SESSION_DRIVER: redis
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+
+x-api-runtime: &api-runtime
+  <<: *api-image
+  environment: *api-environment
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+  volumes:
+    - api-storage:/var/www/html/storage
+
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: infra/docker/proxy/Dockerfile
+    image: vinext-ai-starter-proxy:${IMAGE_TAG:-local}
+    depends_on:
+      api:
+        condition: service_healthy
+      reverb:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    expose:
+      - "8080"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web/Dockerfile
+      args:
+        NEXT_PUBLIC_REVERB_APP_KEY: ${REVERB_APP_KEY:?Set REVERB_APP_KEY}
+    image: vinext-ai-starter-web:${IMAGE_TAG:-local}
+    environment:
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      PORT: "3000"
+    expose:
+      - "3000"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api-nginx/Dockerfile
+    image: vinext-ai-starter-api-nginx:${IMAGE_TAG:-local}
+    depends_on:
+      api-php:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - "8080"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  api-php:
+    <<: *api-runtime
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    exclude_from_hc: true
+    <<: *api-image
+    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - api-storage:/var/www/html/storage
+
+  worker:
+    <<: *api-runtime
+    command: ["php", "artisan", "horizon"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "php", "artisan", "horizon:status"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+
+  scheduler:
+    <<: *api-runtime
+    command: ["php", "artisan", "schedule:work", "--no-interaction"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(str_contains(file_get_contents('/proc/1/cmdline'), 'schedule:work') ? 0 : 1);",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+
+  reverb:
+    <<: *api-runtime
+    command:
+      [
+        "php",
+        "artisan",
+        "reverb:start",
+        "--host=0.0.0.0",
+        "--port=8080",
+        "--no-interaction",
+      ]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - "8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "$$s=@fsockopen('127.0.0.1',8080); exit($$s ? 0 : 1);",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  postgres:
+    image: postgres:17.11-alpine3.24
+    environment:
+      POSTGRES_DB: starter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_USER: starter
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U starter -d starter"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7.4.10-alpine3.21
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  api-storage:
+  postgres-data:
+  redis-data:

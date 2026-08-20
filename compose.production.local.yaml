@@ -1,0 +1,4 @@
+services:
+  proxy:
+    ports:
+      - "${PRODUCTION_PORT:-14000}:8080"

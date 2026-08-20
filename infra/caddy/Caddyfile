@@ -1,0 +1,21 @@
+{
+	admin :2019
+	auto_https off
+}
+
+:13000 {
+	@api path /api/* /sanctum/* /up
+	handle @api {
+		reverse_proxy {$API_UPSTREAM:host.docker.internal:18000}
+	}
+
+	# The Pusher protocol connects to /app/{key}; the /ws prefix keeps that
+	# path from colliding with the web app's routes and is stripped here.
+	handle_path /ws/* {
+		reverse_proxy {$REVERB_UPSTREAM:host.docker.internal:19080}
+	}
+
+	handle {
+		reverse_proxy {$WEB_UPSTREAM:host.docker.internal:13100}
+	}
+}

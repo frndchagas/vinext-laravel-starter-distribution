@@ -1,0 +1,43 @@
+name: Bug report
+description: Report reproducible behavior that does not match the starter's documented contract.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to make the starter more reliable.
+  - type: input
+    id: version
+    attributes:
+      label: Starter version
+      description: Use a release tag or commit SHA.
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the smallest sequence that reproduces the problem.
+      placeholder: Commands, route, input, and observed response
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Bun, PHP, Composer, Docker, and deployment target when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove credentials, tokens, personal data, and complete environment files.
+      render: shell

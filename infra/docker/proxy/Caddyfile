@@ -1,0 +1,23 @@
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+		trusted_proxies_strict
+	}
+}
+
+:8080 {
+	@api path /api/* /sanctum/* /up
+	handle @api {
+		reverse_proxy api:8080
+	}
+
+	handle_path /ws/* {
+		reverse_proxy reverb:8080
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

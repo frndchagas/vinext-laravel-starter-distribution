@@ -1,0 +1,965 @@
+openapi: 3.1.0
+info:
+  title: Vinext AI Starter API
+  version: 0.0.0
+tags:
+  - name: Auth
+  - name: Identity
+  - name: Infrastructure
+  - name: Tasks
+paths:
+  /api/v1/auth/email/verification-notification:
+    post:
+      operationId: resendEmailVerification
+      description: Resend the email verification notification to the authenticated user.
+      parameters: []
+      responses:
+        '202':
+          description: The request has been accepted for processing, but processing has not yet completed.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Auth
+  /api/v1/auth/email/verify/{id}/{hash}:
+    get:
+      operationId: verifyEmail
+      description: Verify the authenticated user's email through a temporary signed link and redirect to the SPA.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expires
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          explode: false
+        - name: signature
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+      responses:
+        '302':
+          description: Redirection
+          headers:
+            location:
+              required: true
+              schema:
+                type: string
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Auth
+  /api/v1/auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+              required:
+                - email
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      parameters: []
+      responses:
+        '204':
+          description: There is no content to send for this request, but the headers may be useful.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Auth
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      description: Register a new user. Controlled by the registration feature flag.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+  /api/v1/auth/reset-password:
+    post:
+      operationId: resetPassword
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                password_confirmation:
+                  type: string
+              required:
+                - token
+                - email
+                - password
+                - password_confirmation
+  /api/v1/auth/two-factor-challenge:
+    post:
+      operationId: completeTwoFactorChallenge
+      parameters: []
+      responses:
+        '204':
+          description: There is no content to send for this request, but the headers may be useful.
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorChallengeRequest'
+  /api/v1/auth/user/confirm-password:
+    post:
+      operationId: confirmPassword
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+              required:
+                - password
+  /api/v1/auth/user/confirmed-password-status:
+    get:
+      operationId: getPasswordConfirmationStatus
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordConfirmationStatus'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Auth
+  /api/v1/auth/user/confirmed-two-factor-authentication:
+    post:
+      operationId: confirmTwoFactor
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+              required:
+                - code
+  /api/v1/auth/user/password:
+    put:
+      operationId: updatePassword
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+  /api/v1/auth/user/profile-information:
+    put:
+      operationId: updateProfile
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+  /api/v1/auth/user/two-factor-authentication:
+    post:
+      operationId: enableTwoFactor
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+    delete:
+      operationId: disableTwoFactor
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+  /api/v1/auth/user/two-factor-qr-code:
+    get:
+      operationId: getTwoFactorQrCode
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorQrCode'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+  /api/v1/auth/user/two-factor-recovery-codes:
+    get:
+      operationId: getRecoveryCodes
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+    post:
+      operationId: regenerateRecoveryCodes
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+  /api/v1/auth/user/two-factor-secret-key:
+    get:
+      operationId: getTwoFactorSecretKey
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secretKey:
+                    type: string
+                required:
+                  - secretKey
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '423':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusMessage'
+      tags:
+        - Auth
+  /api/v1/me:
+    get:
+      operationId: getMe
+      description: Current authenticated identity with roles, permissions and verification state.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Identity
+  /api/v1/tasks:
+    post:
+      operationId: createTask
+      description: Create a Task and queue its processing. Requires a verified email and an Idempotency-Key header; repeating the key with the same payload replays the first response, and a different payload returns 409 with code idempotency_key_reused.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: The request has been accepted for processing, but processing has not yet completed.
+          headers:
+            Location:
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                    format: int32
+                  detail:
+                    type: string
+                  code:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+    get:
+      operationId: listTasks
+      description: Cursor-paginated list of the authenticated user's Tasks, newest first.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPage'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Tasks
+  /api/v1/tasks/{id}:
+    get:
+      operationId: getTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Tasks
+  /sanctum/csrf-cookie:
+    get:
+      operationId: getCsrfCookie
+      description: Issue the CSRF cookie required before state-changing requests.
+      parameters: []
+      responses:
+        '204':
+          description: There is no content to send for this request, but the headers may be useful.
+      tags:
+        - Infrastructure
+components:
+  schemas:
+    CreateTaskRequest:
+      type: object
+      required:
+        - input
+      properties:
+        input:
+          type: string
+          maxLength: 10000
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        remember:
+          type: boolean
+    LoginResult:
+      type: object
+      required:
+        - two_factor
+      properties:
+        two_factor:
+          type: boolean
+    Me:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - email_verified
+        - two_factor_enabled
+        - two_factor_confirmed
+        - roles
+        - permissions
+      properties:
+        id:
+          type: string
+          description: Opaque identifier. Clients must not infer meaning from its value.
+        name:
+          type: string
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        two_factor_enabled:
+          type: boolean
+        two_factor_confirmed:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      description: The authenticated identity, its roles and permissions.
+    PasswordConfirmationStatus:
+      type: object
+      required:
+        - confirmed
+      properties:
+        confirmed:
+          type: boolean
+    Problem:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+      description: RFC 9457 problem details.
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - password_confirmation
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        password_confirmation:
+          type: string
+    StatusMessage:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+    Task:
+      type: object
+      required:
+        - id
+        - input
+        - output
+        - state
+        - version
+        - error_code
+        - correlation_id
+        - started_at
+        - finished_at
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Opaque identifier. Clients must not infer meaning from its value.
+        input:
+          type: string
+        output:
+          anyOf:
+            - $ref: '#/components/schemas/TaskOutput'
+            - type: 'null'
+        state:
+          $ref: '#/components/schemas/TaskState'
+        version:
+          type: integer
+          format: int32
+        error_code:
+          anyOf:
+            - type: string
+            - type: 'null'
+        correlation_id:
+          type: string
+        started_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        finished_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+      description: Reference asynchronous resource. The persisted state is the source of truth.
+    TaskOutput:
+      type: object
+      required:
+        - word_count
+        - reversed
+      properties:
+        word_count:
+          type: integer
+          format: int32
+        reversed:
+          type: string
+    TaskPage:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        meta:
+          type: object
+          properties:
+            next_cursor:
+              anyOf:
+                - type: string
+                - type: 'null'
+            prev_cursor:
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - next_cursor
+            - prev_cursor
+    TaskState:
+      type: string
+      enum:
+        - queued
+        - processing
+        - completed
+        - failed
+    TwoFactorChallengeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        recovery_code:
+          type: string
+    TwoFactorQrCode:
+      type: object
+      required:
+        - svg
+        - url
+      properties:
+        svg:
+          type: string
+        url:
+          type: string
+    UpdatePasswordRequest:
+      type: object
+      required:
+        - current_password
+        - password
+        - password_confirmation
+      properties:
+        current_password:
+          type: string
+        password:
+          type: string
+        password_confirmation:
+          type: string
+    UpdateProfileRequest:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+    ValidationProblem:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - errors
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        errors:
+          type: object
+          unevaluatedProperties:
+            type: array
+            items:
+              type: string
+      description: RFC 9457 problem details with a stable map of field validation errors.

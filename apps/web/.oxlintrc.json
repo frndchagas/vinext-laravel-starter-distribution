@@ -1,0 +1,61 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "deny",
+    "perf": "warn",
+    "suspicious": "deny"
+  },
+  "env": {
+    "browser": true,
+    "node": true
+  },
+  "ignorePatterns": [".next/**", ".vinext/**", "dist/**"],
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "deny",
+    "typeAware": true
+  },
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "jsx-a11y",
+    "import",
+    "vitest",
+    "nextjs",
+    "promise"
+  ],
+  "overrides": [
+    {
+      "files": ["e2e/**"],
+      "rules": {
+        "eslint/no-await-in-loop": "off",
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    }
+  ],
+  "rules": {
+    "import/no-unassigned-import": [
+      "deny",
+      {
+        "allow": [
+          "**/*.css",
+          "@fontsource-variable/manrope",
+          "@fontsource-variable/newsreader",
+          "@testing-library/jest-dom/vitest"
+        ]
+      }
+    ],
+    "react/react-in-jsx-scope": "off"
+  },
+  "settings": {
+    "next": {
+      "rootDir": ["."]
+    },
+    "react": {
+      "version": "19.2"
+    }
+  }
+}
