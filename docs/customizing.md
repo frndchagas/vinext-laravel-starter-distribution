@@ -7,7 +7,7 @@ The GitHub template gives each application its own history. There is no updater,
 Search for the public name and package namespace:
 
 ```bash
-rg "Vinext AI Starter|vinext-ai-starter|@vinext-ai-starter|starter-key|starter-secret"
+rg "Vinext Laravel Starter|vinext-laravel-starter|@vinext-laravel-starter|starter-key|starter-secret"
 ```
 
 Review each match instead of applying a blind replacement. Update at least:
@@ -42,7 +42,7 @@ Do not keep `Task` as a generic bucket for unrelated background work. New public
 Before the first product commit:
 
 ```bash
-rg "Vinext AI Starter|vinext-ai-starter|@vinext-ai-starter|starter-key|starter-secret"
+rg "Vinext Laravel Starter|vinext-laravel-starter|@vinext-laravel-starter|starter-key|starter-secret"
 bun run contracts:check
 bun run check
 bun run test:e2e

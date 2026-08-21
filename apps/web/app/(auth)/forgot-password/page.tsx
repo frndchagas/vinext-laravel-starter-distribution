@@ -1,6 +1,6 @@
 "use client";
 
-import { useForgotPassword } from "@vinext-ai-starter/api-client";
+import { useForgotPassword } from "@vinext-laravel-starter/api-client";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";

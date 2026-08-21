@@ -14,7 +14,8 @@ These rules apply to every application endpoint exposed through the generated cl
 
 - Resources and collections use stable shapes declared in TypeSpec.
 - Errors use RFC 9457 Problem Details with machine-readable domain codes where needed.
-- Validation errors include a stable field-to-messages map.
+- Validation errors include a stable field-to-messages map, validated at the client boundary in development and tests.
+- Rate limits return documented `429` Problem Details with `Retry-After`.
 - Potentially large collections use cursor pagination.
 - Every Laravel API response carries `X-Correlation-Id`; middleware adds this cross-cutting header, which is not repeated in every generated response type today.
 
@@ -28,4 +29,4 @@ Realtime messages never replace the read API. A client can rebuild current state
 
 HTTP changes begin in TypeSpec and include regenerated OpenAPI and client artifacts. On pull requests, oasdiff compares the proposed document with the target branch. This is not a comparison with the latest tagged release.
 
-Protocol endpoints owned by Sanctum, Fortify or Echo may remain outside generated product hooks when application code does not consume them directly. Document each exception in [Authentication](authentication.md).
+Protocol endpoints owned by Sanctum, Fortify or Echo may be invoked by infrastructure instead of a generated product hook. Document each exception in [Authentication](authentication.md).

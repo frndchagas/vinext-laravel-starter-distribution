@@ -1,6 +1,6 @@
 "use client";
 
-import { useResetPassword } from "@vinext-ai-starter/api-client";
+import { useResetPassword } from "@vinext-laravel-starter/api-client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";

@@ -101,12 +101,12 @@ export default function Home() {
         <header className="border-b border-border">
           <div className="mx-auto grid max-w-7xl grid-cols-[auto_1fr_auto] items-center px-5 sm:px-8 lg:px-10">
             <a
-              aria-label="Vinext AI Starter for Laravel home"
+              aria-label="Vinext Laravel Starter home"
               className="flex h-20 items-center border-r border-border pr-6 sm:pr-8"
               href="#main-content"
             >
               <span className="font-display text-4xl leading-none">V</span>
-              <span className="font-display text-4xl leading-none text-primary">A</span>
+              <span className="font-display text-4xl leading-none text-primary">L</span>
             </a>
 
             <nav
@@ -140,14 +140,11 @@ export default function Home() {
                 Open-source foundation designed for coding agents
               </p>
               <h1
-                aria-label="Vinext AI Starter for Laravel"
+                aria-label="Vinext Laravel Starter"
                 className="mt-10 max-w-4xl font-display text-6xl leading-none text-balance sm:text-7xl lg:text-8xl xl:text-9xl"
               >
-                Vinext AI Starter
-                <span className="block">
-                  <span className="mr-3 font-normal text-primary italic">for</span>
-                  Laravel
-                </span>
+                Vinext Laravel
+                <span className="block">Starter</span>
               </h1>
             </div>
 

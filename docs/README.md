@@ -22,5 +22,6 @@ Use this page to find the shortest path for the work you are doing.
 
 - [Domain glossary](../CONTEXT.md): canonical project terms.
 - [Decision records](adr/): accepted architecture decisions and their implementation state.
+- [v1 incubation](incubation.md): release boundary, delivery order and 90-day adoption criteria.
 
 The deployment guide describes the tested Node and Coolify path. Decisions that are still pending remain marked in their ADRs.

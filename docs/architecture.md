@@ -7,7 +7,7 @@ The browser uses one origin published by Caddy:
 ```text
 browser -> Caddy
              ├── /                         -> Vinext on Node
-             ├── /api/*, /sanctum/*, /up  -> Laravel
+             ├── /api/*, /sanctum/*, /up, /ready -> Laravel
              └── /ws/*                    -> Reverb, with /ws stripped
 
 Laravel -> PostgreSQL
@@ -23,8 +23,8 @@ Production builds separate images for Caddy, Vinext, Nginx and PHP-FPM. The PHP 
 ## Boundaries
 
 - TypeSpec is the source for application HTTP consumed through the generated client.
-- AsyncAPI describes contracted realtime messages. It does not provide implementation drift detection.
-- Sanctum CSRF and Echo broadcasting authorization are protocol infrastructure, not generated-client operations.
+- AsyncAPI generates frontend message types and PHP conformance metadata from the same payload schema.
+- Sanctum CSRF and Echo broadcasting authorization remain protocol infrastructure. The session fetcher invokes the contracted CSRF endpoint, while Echo owns broadcasting authorization.
 - PostgreSQL state wins over any realtime notification.
 - Roles and permissions are stored and exposed, but the current Task authorization rule is ownership, not role membership.
 
@@ -34,8 +34,8 @@ See [Authentication](authentication.md), [API conventions](api-conventions.md) a
 
 The starter has no AI provider, billing, teams or passkeys today. Vinext is still in beta and the React Compiler integration is experimental.
 
-The production reference is a regular Docker Compose deployment. It is health checked and suitable for Coolify, but it does not provide zero-downtime traffic switching.
+The production reference is a regular Docker Compose deployment. It has separate liveness and dependency-readiness checks, security headers and a tested PostgreSQL restore path. It is suitable for Coolify but does not provide zero-downtime traffic switching.
 
 ## Positioning
 
-This project is a Laravel and Vinext foundation for coding agents. "AI-first" refers to discoverable instructions, executable contracts and objective gates. It does not mean the starter contains product-specific AI behavior.
+This project is a Laravel and Vinext foundation for coding agents. Agent-ready means discoverable instructions, executable contracts and objective gates; it does not imply product-specific AI behavior.

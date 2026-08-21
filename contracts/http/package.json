@@ -1,5 +1,5 @@
 {
-  "name": "@vinext-ai-starter/http-contract",
+  "name": "@vinext-laravel-starter/http-contract",
   "version": "0.0.0",
   "private": true,
   "type": "module",

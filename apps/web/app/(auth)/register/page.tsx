@@ -1,11 +1,15 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetMeQueryKey, useRegister } from "@vinext-ai-starter/api-client";
+import {
+  getGetMeQueryKey,
+  useGetAuthCapabilities,
+  useRegister,
+} from "@vinext-laravel-starter/api-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { formValue } from "@/lib/form";
 import { problemDetail, validationErrors } from "@/lib/problem";
@@ -16,6 +20,7 @@ export default function RegisterPage() {
   const queryClient = useQueryClient();
   const hydrated = useHydrated();
   const registerMutation = useRegister();
+  const capabilitiesQuery = useGetAuthCapabilities();
 
   const errors =
     registerMutation.data?.status === 422 ? validationErrors(registerMutation.data.data) : {};
@@ -23,6 +28,15 @@ export default function RegisterPage() {
     registerMutation.data?.status === 403
       ? problemDetail(registerMutation.data.data, "Registration is disabled.")
       : undefined;
+  const rateLimitMessage =
+    registerMutation.data?.status === 429
+      ? problemDetail(
+          registerMutation.data.data,
+          "Too many registration attempts. Try again shortly.",
+        )
+      : undefined;
+  const registrationEnabled =
+    capabilitiesQuery.data?.status === 200 && capabilitiesQuery.data.data.registration;
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,14 +63,48 @@ export default function RegisterPage() {
     );
   }
 
+  if (capabilitiesQuery.isPending) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="font-[family-name:var(--font-app-display)] text-xl text-balance text-foreground">
+          Create account
+        </h1>
+        <output className="text-sm text-pretty text-muted-foreground">
+          Checking registration availability…
+        </output>
+      </div>
+    );
+  }
+
+  if (!registrationEnabled) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="font-[family-name:var(--font-app-display)] text-xl text-balance text-foreground">
+          Registration unavailable
+        </h1>
+        <p className="text-sm text-pretty text-muted-foreground">
+          This deployment does not accept public registrations.
+        </p>
+        <Link href="/login" className={buttonVariants({ size: "lg" })}>
+          Sign in
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <h1 className="font-[family-name:var(--font-app-display)] text-xl text-foreground">
+      <h1 className="font-[family-name:var(--font-app-display)] text-xl text-balance text-foreground">
         Create account
       </h1>
       {disabledMessage ? (
         <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {disabledMessage}
+        </p>
+      ) : null}
+      {rateLimitMessage ? (
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {rateLimitMessage}
         </p>
       ) : null}
       <Field label="Name" name="name" autoComplete="name" required errors={errors["name"]} />

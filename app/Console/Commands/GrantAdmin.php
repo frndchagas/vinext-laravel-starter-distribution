@@ -24,7 +24,7 @@ class GrantAdmin extends Command
             return self::FAILURE;
         }
 
-        $user->assignRole(Role::findOrCreate('admin'));
+        $user->syncRoles([Role::findOrCreate('admin')]);
 
         $this->info("Granted the admin role to {$email}.");
 

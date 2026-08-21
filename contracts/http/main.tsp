@@ -4,8 +4,8 @@ import "@typespec/openapi";
 using Http;
 using OpenAPI;
 
-@service(#{ title: "Vinext AI Starter API" })
-namespace VinextAiStarter;
+@service(#{ title: "Vinext Laravel Starter API" })
+namespace VinextLaravelStarter;
 
 @doc("RFC 9457 problem details.")
 model Problem {
@@ -49,6 +49,14 @@ model NotFoundResponse {
   @body body: Problem;
 }
 
+@error
+model TooManyRequestsResponse {
+  @statusCode statusCode: 429;
+  @header contentType: "application/problem+json";
+  @header("Retry-After") retryAfter?: string;
+  @body body: Problem;
+}
+
 @doc("The authenticated identity, its roles and permissions.")
 model Me {
   @doc("Opaque identifier. Clients must not infer meaning from its value.")
@@ -80,6 +88,10 @@ model LoginResult {
   two_factor: boolean;
 }
 
+model AuthCapabilities {
+  registration: boolean;
+}
+
 model UpdateProfileRequest {
   name: string;
   email: string;
@@ -89,6 +101,10 @@ model UpdatePasswordRequest {
   current_password: string;
   password: string;
   password_confirmation: string;
+}
+
+model DeleteCurrentUserRequest {
+  password: string;
 }
 
 model TwoFactorChallengeRequest {
@@ -125,6 +141,7 @@ namespace Auth {
   op register(@body body: RegisterRequest):
     | CreatedResponse
     | ForbiddenResponse
+    | TooManyRequestsResponse
     | ValidationErrorResponse;
 
   @operationId("login")
@@ -133,7 +150,16 @@ namespace Auth {
   op login(@body body: LoginRequest): {
     @statusCode statusCode: 200;
     @body body: LoginResult;
-  } | ValidationErrorResponse;
+  } | ValidationErrorResponse | TooManyRequestsResponse;
+
+  @operationId("getAuthCapabilities")
+  @doc("Public authentication capabilities controlled by Laravel deployment configuration.")
+  @route("/capabilities")
+  @get
+  op getAuthCapabilities(): {
+    @statusCode statusCode: 200;
+    @body body: AuthCapabilities;
+  };
 
   @operationId("logout")
   @route("/logout")
@@ -167,7 +193,7 @@ namespace Auth {
   @doc("Resend the email verification notification to the authenticated user.")
   @route("/email/verification-notification")
   @post
-  op resendEmailVerification(): AcceptedResponse | UnauthorizedResponse;
+  op resendEmailVerification(): AcceptedResponse | UnauthorizedResponse | TooManyRequestsResponse;
 
   @operationId("verifyEmail")
   @doc("Verify the authenticated user's email through a temporary signed link and redirect to the SPA.")
@@ -181,7 +207,7 @@ namespace Auth {
   ): {
     @statusCode statusCode: 302;
     @header location: string;
-  } | UnauthorizedResponse | ForbiddenResponse;
+  } | UnauthorizedResponse | ForbiddenResponse | TooManyRequestsResponse;
 
   @operationId("updateProfile")
   @route("/user/profile-information")
@@ -196,6 +222,16 @@ namespace Auth {
   op updatePassword(@body body: UpdatePasswordRequest): {
     @statusCode statusCode: 200;
   } | ValidationErrorResponse | UnauthorizedResponse;
+
+  @operationId("deleteCurrentUser")
+  @doc("Permanently delete the authenticated User and resources owned only by that identity.")
+  @route("/user")
+  @delete
+  op deleteCurrentUser(@body body: DeleteCurrentUserRequest):
+    | NoContentResponse
+    | ConflictResponse
+    | ValidationErrorResponse
+    | UnauthorizedResponse;
 
   @operationId("confirmPassword")
   @route("/user/confirm-password")
@@ -275,7 +311,8 @@ namespace Auth {
   @post
   op completeTwoFactorChallenge(@body body: TwoFactorChallengeRequest):
     | NoContentResponse
-    | ValidationErrorResponse;
+    | ValidationErrorResponse
+    | TooManyRequestsResponse;
 }
 
 @tag("Identity")
@@ -288,6 +325,62 @@ namespace Identity {
     @statusCode statusCode: 200;
     @body body: Me;
   } | UnauthorizedResponse;
+}
+
+union AdminUserRole {
+  "member",
+  "admin",
+}
+
+model AdminUser {
+  @doc("Opaque identifier. Clients must not infer meaning from its value.")
+  id: string;
+
+  name: string;
+  email: string;
+  email_verified: boolean;
+  roles: AdminUserRole[];
+  created_at: utcDateTime;
+}
+
+model AdminUserPage {
+  data: AdminUser[];
+  meta: {
+    next_cursor: string | null;
+    prev_cursor: string | null;
+  };
+}
+
+model UpdateAdminUserRoleRequest {
+  role: AdminUserRole;
+}
+
+@tag("Administration")
+@route("/api/v1/admin/users")
+namespace Administration {
+  @operationId("listAdminUsers")
+  @doc("Search and cursor-page through safe User identity and role metadata. Requires users.view.")
+  @get
+  op listAdminUsers(
+    @query search?: string,
+    @query cursor?: string,
+    @query per_page?: int32,
+  ): {
+    @statusCode statusCode: 200;
+    @body body: AdminUserPage;
+  } | UnauthorizedResponse | ForbiddenResponse;
+
+  @operationId("updateAdminUserRole")
+  @doc("Replace another User's canonical role. Requires users.manage.")
+  @route("/{id}/role")
+  @patch
+  op updateAdminUserRole(
+    @path id: string,
+    @body body: UpdateAdminUserRoleRequest,
+  ): {
+    @statusCode statusCode: 200;
+    @body body: AdminUser;
+  } | ConflictResponse | ValidationErrorResponse | UnauthorizedResponse | ForbiddenResponse | NotFoundResponse;
 }
 
 @tag("Infrastructure")

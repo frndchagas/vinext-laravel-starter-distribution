@@ -3,9 +3,6 @@ import { defineConfig } from "orval";
 export default defineConfig({
   api: {
     input: "../../contracts/http/openapi/openapi.yaml",
-    hooks: {
-      afterAllFilesWrite: "oxfmt --write",
-    },
     output: {
       target: "./src/generated/endpoints.ts",
       schemas: "./src/generated/models",

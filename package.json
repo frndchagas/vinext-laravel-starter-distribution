@@ -1,5 +1,5 @@
 {
-  "name": "vinext-ai-starter",
+  "name": "vinext-laravel-starter",
   "version": "1.0.0",
   "private": true,
   "license": "MIT",
@@ -18,6 +18,8 @@
     "dev": "docker compose up -d --wait postgres redis mailpit caddy && API_HOST=${API_HOST:-0.0.0.0} API_PORT=${API_PORT:-18000} APP_URL=${APP_URL:-http://localhost:${WEB_PUBLIC_PORT:-13000}} BROADCAST_CONNECTION=reverb CACHE_STORE=redis DB_CONNECTION=pgsql DB_DATABASE=starter DB_HOST=127.0.0.1 DB_PASSWORD=starter DB_PORT=${POSTGRES_PORT:-15432} DB_USERNAME=starter MAIL_HOST=127.0.0.1 MAIL_MAILER=smtp MAIL_PORT=${MAILPIT_SMTP_PORT:-11025} NEXT_PUBLIC_REVERB_APP_KEY=${REVERB_APP_KEY:-starter-key} QUEUE_CONNECTION=redis REDIS_HOST=127.0.0.1 REDIS_PORT=${REDIS_PORT:-16379} REVERB_APP_ID=${REVERB_APP_ID:-starter} REVERB_APP_KEY=${REVERB_APP_KEY:-starter-key} REVERB_APP_SECRET=${REVERB_APP_SECRET:-starter-secret} REVERB_HOST=127.0.0.1 REVERB_PORT=${REVERB_PORT:-19080} REVERB_SCHEME=http REVERB_SERVER_PORT=${REVERB_PORT:-19080} SESSION_DRIVER=redis WEB_HOST=${WEB_HOST:-0.0.0.0} WEB_PORT=${WEB_PORT:-13100} bun run --parallel dev:web dev:api",
     "infra:down": "docker compose down",
     "infra:up": "docker compose up -d --wait postgres redis mailpit caddy",
+    "db:backup": "bash scripts/postgres-backup.sh",
+    "db:restore": "bash scripts/postgres-restore.sh",
     "format": "bun run --parallel format:php format:workspaces",
     "format:check": "bun run --parallel format:check:php format:check:workspaces",
     "lint": "bun run --parallel lint:php lint:workspaces",
@@ -25,17 +27,15 @@
     "test": "bun run --parallel test:php test:workspaces",
     "test:e2e": "bun run --filter web test:e2e",
     "test:production": "bash scripts/production-smoke.sh",
-    "test:template": "bash scripts/template-smoke.sh",
-    "test:distribution": "bash scripts/distribution-smoke.sh",
     "build": "bun run --parallel --if-present --filter '*' build",
     "config:check": "composer validate --strict && docker compose config --quiet && bun run coolify:check",
     "coolify:build": "bun run scripts/coolify-compose.mjs",
     "coolify:check": "bun run scripts/coolify-compose.mjs --check",
     "audit": "bun dedupe --check && bun audit --audit-level=high && composer audit --locked",
     "check": "bun run config:check && bun run --parallel format:check lint typecheck test build",
-    "contracts:build": "bun run --filter @vinext-ai-starter/http-contract build && bun run --filter @vinext-ai-starter/api-client generate",
-    "contracts:validate": "bun run --filter @vinext-ai-starter/realtime-contract validate",
-    "contracts:check": "bun run contracts:validate && bun run contracts:build && git diff --exit-code -- contracts/http/openapi packages/api-client/src/generated || (echo 'HTTP contract artifacts drifted: run bun run contracts:build and commit.' && exit 1)",
+    "contracts:build": "bun run --filter @vinext-laravel-starter/http-contract build && bun run --filter @vinext-laravel-starter/api-client generate && bun run --filter @vinext-laravel-starter/realtime-contract generate",
+    "contracts:validate": "bun run --filter @vinext-laravel-starter/realtime-contract validate",
+    "contracts:check": "bun run contracts:validate && bun run contracts:build && git diff --exit-code -- contracts/http/openapi contracts/realtime/generated packages/api-client/src/generated || (echo 'Contract artifacts drifted: run bun run contracts:build and commit.' && exit 1)",
     "dev:web": "bun run --filter web dev",
     "dev:api": "php artisan dev --inline",
     "format:php": "vendor/bin/pint",
@@ -48,7 +48,7 @@
     "test:workspaces": "bun run --parallel --if-present --filter '*' test"
   },
   "devDependencies": {
-    "lefthook": "2.0.13",
+    "lefthook": "2.1.10",
     "@laravel/multiplex": "0.4.3"
   }
 }

@@ -25,3 +25,11 @@
 - Tests must not use real external services.
 - Never commit `.env`, credentials or generated runtime artifacts.
 - Update the relevant decision document when architecture changes.
+
+## Laravel API instructions
+
+- Laravel owns identity, authorization, domain state, queues and broadcasts.
+- Use Form Requests for input, API Resources for output and Policies for resource authorization.
+- Dispatch jobs and broadcast events only after the surrounding transaction commits.
+- Keep controllers thin and avoid abstractions without a concrete boundary.
+- Run `composer format:check`, `composer lint` and `composer test` for focused changes.

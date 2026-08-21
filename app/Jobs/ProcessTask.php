@@ -8,6 +8,7 @@ use App\Models\Task;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -21,6 +22,8 @@ class ProcessTask implements ShouldBeUnique, ShouldQueue
     public int $timeout = 120;
 
     public bool $failOnTimeout = true;
+
+    public int $uniqueFor = 180;
 
     public string $processingToken;
 
@@ -49,6 +52,8 @@ class ProcessTask implements ShouldBeUnique, ShouldQueue
         if ($task === null || $task->state->isFinal()) {
             return;
         }
+
+        Context::add('correlation_id', $task->correlation_id);
 
         $claimed = Task::query()
             ->whereKey($this->taskId)

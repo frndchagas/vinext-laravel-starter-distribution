@@ -53,6 +53,42 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
     }
 
+    public function test_the_public_capabilities_report_the_registration_flag(): void
+    {
+        $this->getJson('/api/v1/auth/capabilities')
+            ->assertOk()
+            ->assertExactJson(['registration' => true]);
+
+        config(['features.registration' => false]);
+
+        $this->getJson('/api/v1/auth/capabilities')
+            ->assertOk()
+            ->assertExactJson(['registration' => false]);
+    }
+
+    public function test_registration_is_rate_limited_by_identity_and_ip_address(): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/v1/auth/register', [
+                'name' => '',
+                'email' => 'invalid',
+                'password' => 'short',
+                'password_confirmation' => 'different',
+            ])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => '',
+            'email' => 'invalid',
+            'password' => 'short',
+            'password_confirmation' => 'different',
+        ])
+            ->assertTooManyRequests()
+            ->assertHeader('Content-Type', 'application/problem+json')
+            ->assertHeader('Retry-After')
+            ->assertJsonPath('status', 429);
+    }
+
     public function test_registration_validates_input_as_problem_details(): void
     {
         $response = $this->postJson('/api/v1/auth/register', [

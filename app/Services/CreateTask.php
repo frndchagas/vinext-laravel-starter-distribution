@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\TaskState;
 use App\Exceptions\IdempotencyKeyReused;
 use App\Http\Resources\TaskResource;
-use App\Jobs\ProcessTask;
 use App\Models\IdempotencyKey;
 use App\Models\Task;
 use App\Models\User;
@@ -15,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 class CreateTask
 {
     private const string OPERATION = 'tasks.create';
+
+    public function __construct(private DispatchTask $dispatchTask) {}
 
     public function __invoke(User $user, string $input, string $idempotencyKey, string $correlationId): CreateTaskResult
     {
@@ -44,7 +45,7 @@ class CreateTask
                     'response_body' => $body,
                 ]);
 
-                ProcessTask::dispatch((string) $task->getKey())->afterCommit();
+                $this->dispatchTask->afterCommit((string) $task->getKey());
 
                 return new CreateTaskResult(taskId: (string) $task->getKey(), status: 202, body: $body, replayed: false);
             });
@@ -61,6 +62,12 @@ class CreateTask
 
             if ($existing->payload_hash !== $payloadHash) {
                 throw new IdempotencyKeyReused;
+            }
+
+            $task = Task::query()->find($existing->resource_id);
+
+            if ($task?->state === TaskState::Queued) {
+                $this->dispatchTask->afterCommit((string) $task->getKey());
             }
 
             return new CreateTaskResult(

@@ -1,6 +1,6 @@
 # Deployment
 
-The production reference runs one public Caddy service with separate containers for Vinext, Laravel, Horizon, the scheduler and Reverb. PostgreSQL and Redis keep persistent volumes. Laravel migrations run once before application services start.
+The production reference runs one public Caddy service with separate containers for Vinext, Laravel, Horizon, the scheduler and Reverb. PostgreSQL and Redis keep persistent volumes. Laravel migrations run once before application services start. The scheduler reconciles unfinished Task delivery, records Horizon metrics every five minutes and prunes failed jobs after seven days.
 
 ## Environment
 
@@ -12,11 +12,13 @@ cp .env.production.example .env.production
 
 Set unique values for `APP_KEY`, `POSTGRES_PASSWORD`, `REVERB_APP_KEY` and `REVERB_APP_SECRET`. `APP_URL` includes the public scheme and host. `APP_HOST` contains only the host, plus a port when the public URL uses one.
 
-The example logs mail instead of sending it. Configure a real SMTP provider before enabling registration or password reset for users.
+The example logs mail instead of sending it. Configure a real SMTP provider, including `MAIL_SCHEME`, before setting `FEATURE_REGISTRATION=true` or enabling password reset for users. Public registration defaults to disabled.
+
+`/up` proves that Laravel can serve a request. `/ready` also checks the configured database and cache. Use `/ready` to decide whether a deployment should receive traffic; do not restart PHP merely because an external dependency is temporarily unavailable.
 
 ## Local production smoke
 
-The automated smoke builds every image, starts the complete production topology, applies migrations and sends a Task through Horizon:
+The automated smoke builds every image, starts the complete production topology, applies migrations, sends a Task through Horizon and restores a PostgreSQL backup into a new database:
 
 ```bash
 bun run test:production
@@ -28,8 +30,33 @@ The script uses a separate Compose project and deletes its containers and volume
 
 Create a Docker Compose application from the public repository and select `compose.coolify.yaml`. Assign a domain to the `proxy` service on port `8080`. Keep PostgreSQL and Redis private. The Coolify-specific file excludes the one-time migration container from aggregate health checks and is generated from the production Compose file with `bun run coolify:build`.
 
-Add every variable from `.env.production.example`. Do not expose the internal API, Reverb, PostgreSQL or Redis ports. Configure the service health path as `/up` with expected status `200`.
+Add every variable from `.env.production.example`. Do not expose the internal API, Reverb, PostgreSQL or Redis ports. Configure the service health path as `/ready` with expected status `200`. Container liveness checks continue to use `/up`.
 
-Deploys run migrations before starting the application services. Published migrations must remain backward compatible with the previous release. Back up PostgreSQL before a schema change and test restoration separately.
+Deploys run migrations before starting the application services. Published migrations must remain backward compatible with the previous release.
+
+## PostgreSQL backup and restore
+
+The scripts use the `postgres` service from the active Compose project. They create custom-format dumps without ownership or privilege statements. A restore always targets a new database and refuses to replace the configured application database.
+
+```bash
+export COMPOSE_FILE=compose.production.yaml
+install -d -m 700 ../vinext-backups
+POSTGRES_ENV_FILE=.env.production bun run db:backup -- ../vinext-backups/before-migration.dump
+POSTGRES_ENV_FILE=.env.production bun run db:restore -- ../vinext-backups/before-migration.dump starter_recovery
+```
+
+Keep the backup outside the repository with restrictive storage permissions. After restoration, point a temporary application instance at `starter_recovery`, run `/ready` and verify critical records before changing production traffic. Provider snapshots remain useful, but they do not replace a tested logical restore.
+
+## Managed PostgreSQL and Redis
+
+The API environment accepts `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT` and `REDIS_PASSWORD`. In Coolify, set those values to the private managed-service endpoints. Then remove the embedded `postgres` and `redis` services and their `depends_on` entries from your deployment copy. Keep TLS, certificate and network settings required by the provider in that application-specific override. Use the provider's backup policy and periodically run the same `pg_restore` verification against an isolated database.
+
+## Response headers
+
+The production proxy sets CSP, HSTS, clickjacking, MIME-sniffing, referrer and browser-permission policies. The CSP allows inline scripts and styles because the current Vinext document bootstrap requires them. Tighten it only after replacing those inline blocks with nonces or hashes and rerunning the production browser flow.
+
+## Container scan policy
+
+Trivy blocks fixable high and critical findings in application images, Redis and PostgreSQL operating-system packages. The official PostgreSQL image currently bundles `gosu` built with an older Go standard library. Those library findings stay visible as a nonblocking step until the official image is rebuilt or reachability can be justified; they are not silently ignored or marked unaffected without evidence.
 
 Coolify recreates services in a regular Docker Compose deployment. This reference does not claim zero downtime. Roll back by selecting the previous source tag and redeploying it; do not roll back the database unless the migration has an explicit reversal plan.

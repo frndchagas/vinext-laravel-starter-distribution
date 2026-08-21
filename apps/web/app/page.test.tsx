@@ -8,7 +8,7 @@ describe("starter home", () => {
     render(<Home />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Vinext AI Starter for Laravel" }),
+      screen.getByRole("heading", { level: 1, name: "Vinext Laravel Starter" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "The baseline settles the recurring decisions." }),

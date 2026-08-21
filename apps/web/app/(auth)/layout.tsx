@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: Readonly<{ children: React.Reac
           href="/"
           className="mb-8 block text-center font-[family-name:var(--font-app-display)] text-2xl text-foreground"
         >
-          Vinext AI Starter
+          Vinext Laravel Starter
         </Link>
         <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_var(--border)]">
           {children}

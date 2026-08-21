@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "frndchagas/vinext-ai-starter",
+    "name": "frndchagas/vinext-laravel-starter",
     "type": "project",
     "description": "Laravel and Vinext foundation for coding agents.",
     "keywords": [
@@ -48,12 +48,12 @@
         "setup": [
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
-            "@php artisan migrate --force"
+            "@php artisan app:ensure-key",
+            "@php artisan migrate --seed --force"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "@php artisan dev --inline"
+            "bun run bootstrap && bun run dev"
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
@@ -78,7 +78,7 @@
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
+            "@php artisan migrate --seed --graceful --ansi"
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
@@ -102,5 +102,10 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "homepage": "https://github.com/frndchagas/vinext-laravel-starter",
+    "support": {
+        "issues": "https://github.com/frndchagas/vinext-laravel-starter/issues",
+        "source": "https://github.com/frndchagas/vinext-laravel-starter"
+    }
 }

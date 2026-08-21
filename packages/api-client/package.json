@@ -1,5 +1,5 @@
 {
-  "name": "@vinext-ai-starter/api-client",
+  "name": "@vinext-laravel-starter/api-client",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,22 +9,26 @@
     "./testing": "./src/testing.ts"
   },
   "scripts": {
-    "generate": "orval --config ./orval.config.ts",
+    "generate": "orval --config ./orval.config.ts && bun run scripts/generate-response-contracts.mjs && oxfmt --write src/generated",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "4.3.5"
+    "zod": "4.4.3"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.90.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@faker-js/faker": "10.1.0",
-    "@tanstack/react-query": "5.90.5",
-    "msw": "2.12.9",
+    "@faker-js/faker": "10.6.0",
+    "@tanstack/react-query": "5.101.4",
+    "@types/node": "26.2.0",
+    "msw": "2.15.0",
     "orval": "8.24.0",
     "oxfmt": "0.64.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "4.1.11",
+    "yaml": "2.9.0"
   }
 }

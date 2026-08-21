@@ -30,12 +30,18 @@ async function parseBody(response: Response): Promise<unknown> {
   }
 
   const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text();
 
-  if (contentType.includes("json")) {
-    return response.json();
+  if (text === "") {
+    return undefined;
   }
 
-  return response.text();
+  if (contentType.includes("json")) {
+    const data = JSON.parse(text);
+    return data === "" ? undefined : data;
+  }
+
+  return text;
 }
 
 export async function apiFetch<T>(url: string, options: RequestInit): Promise<T> {
@@ -61,6 +67,11 @@ export async function apiFetch<T>(url: string, options: RequestInit): Promise<T>
   });
 
   const data = await parseBody(response);
+
+  if (process.env.NODE_ENV !== "production") {
+    const { validateContractResponse } = await import("./validate-response");
+    validateContractResponse(method, url, response.status, data);
+  }
 
   return { data, status: response.status, headers: response.headers } as T;
 }

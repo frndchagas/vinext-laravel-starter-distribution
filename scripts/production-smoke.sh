@@ -6,12 +6,16 @@ project_name="vinext-production-smoke-${GITHUB_RUN_ID:-$$}-${GITHUB_RUN_ATTEMPT:
 image_tag="smoke-${GITHUB_RUN_ID:-$$}-${GITHUB_RUN_ATTEMPT:-1}"
 production_port=${PRODUCTION_PORT:-14000}
 cookie_jar=$(mktemp)
+backup_root=$(mktemp -d)
+backup_file="$backup_root/starter.dump"
+headers_file="$backup_root/headers.txt"
 
 export APP_HOST="127.0.0.1:$production_port"
 export APP_KEY
 APP_KEY=$(php -r 'echo "base64:".base64_encode(random_bytes(32));')
 export APP_NAME="Vinext production smoke"
 export APP_URL="http://127.0.0.1:$production_port"
+export FEATURE_REGISTRATION=true
 export IMAGE_TAG="$image_tag"
 export MAIL_MAILER=log
 export POSTGRES_PASSWORD=smoke-password
@@ -20,6 +24,8 @@ export REVERB_APP_ID=starter
 export REVERB_APP_KEY=smoke-key
 export REVERB_APP_SECRET=smoke-secret
 export SESSION_SECURE_COOKIE=false
+export COMPOSE_PROJECT_NAME="$project_name"
+export COMPOSE_FILE="compose.production.yaml:compose.production.local.yaml"
 
 compose=(
     docker compose
@@ -33,35 +39,74 @@ cleanup() {
     set +e
     "${compose[@]}" down --volumes --remove-orphans
     rm -f "$cookie_jar"
+    rm -f "$backup_file" "$headers_file"
+    rmdir "$backup_root" 2>/dev/null || true
 }
 
 trap cleanup EXIT INT TERM
 
 docker build \
     --file infra/docker/api/Dockerfile \
-    --tag "vinext-ai-starter-api:$image_tag" \
+    --tag "vinext-laravel-starter-api:$image_tag" \
     .
 
 docker build \
     --file infra/docker/api-nginx/Dockerfile \
-    --tag "vinext-ai-starter-api-nginx:$image_tag" \
+    --tag "vinext-laravel-starter-api-nginx:$image_tag" \
     .
 
 docker build \
     --file infra/docker/proxy/Dockerfile \
-    --tag "vinext-ai-starter-proxy:$image_tag" \
+    --tag "vinext-laravel-starter-proxy:$image_tag" \
     .
 
 docker build \
     --build-arg "NEXT_PUBLIC_REVERB_APP_KEY=$REVERB_APP_KEY" \
     --file infra/docker/web/Dockerfile \
-    --tag "vinext-ai-starter-web:$image_tag" \
+    --tag "vinext-laravel-starter-web:$image_tag" \
     .
 
 "${compose[@]}" up --detach --no-build --wait
 
-curl --fail --silent --show-error "$APP_URL/" >/dev/null
+postgres_image_id=$(docker inspect --format '{{.Image}}' "$("${compose[@]}" ps --quiet postgres)")
+redis_image_id=$(docker inspect --format '{{.Image}}' "$("${compose[@]}" ps --quiet redis)")
+docker tag "$postgres_image_id" "vinext-laravel-starter-postgres:$image_tag"
+docker tag "$redis_image_id" "vinext-laravel-starter-redis:$image_tag"
+
+curl --fail --silent --show-error --dump-header "$headers_file" "$APP_URL/" >/dev/null
 curl --fail --silent --show-error "$APP_URL/up" >/dev/null
+curl --fail --silent --show-error "$APP_URL/ready" >/dev/null
+capabilities=$(
+    curl --fail --silent --show-error "$APP_URL/api/v1/auth/capabilities"
+)
+php -r '
+    $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+    exit(($data["registration"] ?? null) === true ? 0 : 1);
+' <<<"$capabilities"
+
+schedule=$(
+    "${compose[@]}" exec -T api-php php artisan schedule:list --no-ansi
+)
+grep --quiet 'tasks:reconcile' <<<"$schedule"
+grep --quiet 'horizon:snapshot' <<<"$schedule"
+grep --quiet 'queue:prune-failed --hours=168' <<<"$schedule"
+
+grep --ignore-case --quiet '^Content-Security-Policy:' "$headers_file"
+grep --ignore-case --quiet '^Permissions-Policy:' "$headers_file"
+grep --ignore-case --quiet '^Referrer-Policy: strict-origin-when-cross-origin' "$headers_file"
+grep --ignore-case --quiet '^Strict-Transport-Security: max-age=31536000; includeSubDomains' "$headers_file"
+grep --ignore-case --quiet '^X-Content-Type-Options: nosniff' "$headers_file"
+grep --ignore-case --quiet '^X-Frame-Options: DENY' "$headers_file"
+
+if grep --ignore-case --quiet '^Server:' "$headers_file"; then
+    echo "The public proxy exposed an upstream Server header." >&2
+    exit 1
+fi
+
+if grep --ignore-case --quiet '^X-Powered-By:' "$headers_file"; then
+    echo "The public proxy exposed an upstream X-Powered-By header." >&2
+    exit 1
+fi
 
 me_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$APP_URL/api/v1/me")
 if [[ "$me_status" != 401 ]]; then
@@ -130,6 +175,12 @@ task_response=$(
 )
 
 task_id=$(php -r "\$data=json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR); echo \$data['id'];" <<<"$task_response")
+
+if [[ ! "$task_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    echo "Task API returned an invalid identifier: $task_id" >&2
+    exit 1
+fi
+
 task_completed=false
 
 for _ in {1..30}; do
@@ -156,4 +207,54 @@ if [[ "$task_completed" != true ]]; then
     exit 1
 fi
 
-echo "Production smoke passed with $applied_migrations migrations and a completed queued Task."
+source_task_count=$(
+    "${compose[@]}" exec -T postgres \
+        psql --username starter --dbname starter --tuples-only --no-align \
+        --command 'select count(*) from tasks;'
+)
+
+bash scripts/postgres-backup.sh "$backup_file"
+bash scripts/postgres-restore.sh "$backup_file" starter_restore
+
+restored_migrations=$(
+    "${compose[@]}" exec -T postgres \
+        psql --username starter --dbname starter_restore --tuples-only --no-align \
+        --command 'select count(*) from migrations;'
+)
+restored_task_count=$(
+    "${compose[@]}" exec -T postgres \
+        psql --username starter --dbname starter_restore --tuples-only --no-align \
+        --command 'select count(*) from tasks;'
+)
+restored_task_state=$(
+    "${compose[@]}" exec -T postgres \
+        psql --username starter --dbname starter_restore --tuples-only --no-align \
+        --command "select state from tasks where id = '$task_id';"
+)
+restored_user_count=$(
+    "${compose[@]}" exec -T postgres \
+        psql --username starter --dbname starter_restore --tuples-only --no-align \
+        --command "select count(*) from users where email = 'smoke@example.invalid';"
+)
+
+if [[ "$restored_migrations" != "$applied_migrations" ]]; then
+    echo "Restore has $restored_migrations migrations; expected $applied_migrations." >&2
+    exit 1
+fi
+
+if [[ "$restored_task_count" != "$source_task_count" ]]; then
+    echo "Restore has $restored_task_count Tasks; expected $source_task_count." >&2
+    exit 1
+fi
+
+if [[ "$restored_task_state" != completed ]]; then
+    echo "Restored Task $task_id is $restored_task_state; expected completed." >&2
+    exit 1
+fi
+
+if [[ "$restored_user_count" != 1 ]]; then
+    echo "Restore did not preserve the smoke User." >&2
+    exit 1
+fi
+
+echo "Production smoke passed with readiness, security headers, $applied_migrations migrations, a completed queued Task and a restored PostgreSQL backup."

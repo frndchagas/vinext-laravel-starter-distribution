@@ -15,18 +15,20 @@ class RolesAndPermissionsSeeder extends Seeder
     private const array PERMISSIONS = [
         'users.view',
         'users.manage',
-        'settings.manage',
     ];
 
     public function run(): void
     {
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->forgetCachedPermissions();
+
         foreach (self::PERMISSIONS as $permission) {
             Permission::findOrCreate($permission);
         }
 
         Role::findOrCreate('admin')->syncPermissions(self::PERMISSIONS);
-        Role::findOrCreate('member');
+        Role::findOrCreate('member')->syncPermissions([]);
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $registrar->forgetCachedPermissions();
     }
 }

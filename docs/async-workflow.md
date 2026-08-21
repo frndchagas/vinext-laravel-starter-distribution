@@ -8,13 +8,15 @@
 
 Repeating the key with the same input returns the first response without dispatching another job. Reusing it with different input returns `409 idempotency_key_reused`.
 
-The Task, idempotency record and job dispatch share a transaction boundary. The job is queued after commit. Rolling back an enclosing transaction leaves no Task, idempotency record or database queue row.
+The Task and idempotency record share a PostgreSQL transaction. Redis delivery runs only after the outer transaction commits, so rolling back leaves no Task or key. Redis is a separate system: if delivery fails after commit, the persisted Task remains `queued` and still represents work that is owed.
+
+An idempotent replay attempts delivery again. The scheduler also reconciles queued Tasks after one minute and processing claims that remain unfinished beyond the complete retry window. PostgreSQL state is the recovery boundary; PostgreSQL and Redis still do not share one transaction.
 
 ## Process safely
 
 `ProcessTask` has three attempts, a 120-second timeout and backoff delays of 10 and 60 seconds. Horizon uses a 125-second supervisor timeout, and Redis uses a 150-second `retry_after` value.
 
-`ShouldBeUnique` reduces duplicate dispatches but is not the correctness boundary. Each serialized job carries a processing token. The atomic transition from `queued` to `processing` stores that token. A retry with the same token may continue; another worker exits without completing or failing the Task.
+`ShouldBeUnique` reduces duplicate dispatches and expires its delivery lock after three minutes, but it is not the correctness boundary. Each serialized job carries a processing token. The atomic transition from `queued` to `processing` stores that token. A retry or reconciled stale claim with the same token may continue; another worker exits without completing or failing the Task.
 
 External providers should receive an idempotency key derived from the Task identifier when they support one. The starter cannot promise exactly-once effects across a provider call and a process crash.
 
@@ -28,12 +30,14 @@ WebSocket delivery has no end-to-end guarantee. A client may miss or receive dup
 
 ## Contracts and proofs
 
-TypeSpec defines the HTTP resource and errors. AsyncAPI defines the observable Task channel and message. CI validates both documents but only the HTTP pipeline has generated drift detection.
+TypeSpec defines the HTTP resource and errors. AsyncAPI defines the observable Task channel and message. CI detects generated drift in both pipelines, and PHP tests compare the broadcast event with generated AsyncAPI metadata.
 
 Tests currently prove:
 
 - idempotent replay and conflicting reuse;
 - rollback without persisted work or queued jobs;
+- recovery after Redis rejects the first delivery attempt;
+- reconciliation of queued work and stale processing claims;
 - processing-token ownership and retry behavior;
 - final states are not processed again;
 - private-channel ownership and verified-email checks;

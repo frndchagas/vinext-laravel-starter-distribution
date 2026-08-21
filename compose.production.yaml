@@ -1,38 +1,40 @@
-name: vinext-ai-starter-production
+name: vinext-laravel-starter-production
 
 x-api-image: &api-image
   build:
     context: .
     dockerfile: infra/docker/api/Dockerfile
-  image: vinext-ai-starter-api:${IMAGE_TAG:-local}
+  image: vinext-laravel-starter-api:${IMAGE_TAG:-local}
 
 x-api-environment: &api-environment
   APP_DEBUG: "false"
   APP_ENV: production
   APP_KEY: ${APP_KEY:?Set APP_KEY}
-  APP_NAME: ${APP_NAME:-Vinext AI Starter}
+  APP_NAME: ${APP_NAME:-Vinext Laravel Starter}
   APP_URL: ${APP_URL:?Set APP_URL}
   BROADCAST_CONNECTION: reverb
   CACHE_STORE: redis
   DB_CONNECTION: pgsql
-  DB_DATABASE: starter
-  DB_HOST: postgres
-  DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-  DB_PORT: "5432"
-  DB_USERNAME: starter
+  DB_DATABASE: ${DB_DATABASE:-starter}
+  DB_HOST: ${DB_HOST:-postgres}
+  DB_PASSWORD: ${DB_PASSWORD:-${POSTGRES_PASSWORD:?Set DB_PASSWORD or POSTGRES_PASSWORD}}
+  DB_PORT: ${DB_PORT:-5432}
+  DB_USERNAME: ${DB_USERNAME:-starter}
+  FEATURE_REGISTRATION: ${FEATURE_REGISTRATION:-false}
   LOG_CHANNEL: stderr
   LOG_LEVEL: ${LOG_LEVEL:-info}
-  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-null}
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
-  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Vinext AI Starter}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Vinext Laravel Starter}
   MAIL_HOST: ${MAIL_HOST:-localhost}
   MAIL_MAILER: ${MAIL_MAILER:-log}
   MAIL_PASSWORD: ${MAIL_PASSWORD:-null}
   MAIL_PORT: ${MAIL_PORT:-1025}
+  MAIL_SCHEME: ${MAIL_SCHEME:-null}
   MAIL_USERNAME: ${MAIL_USERNAME:-null}
   QUEUE_CONNECTION: redis
-  REDIS_HOST: redis
-  REDIS_PORT: "6379"
+  REDIS_HOST: ${REDIS_HOST:-redis}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-null}
+  REDIS_PORT: ${REDIS_PORT:-6379}
   REVERB_ALLOWED_ORIGINS: ${APP_HOST:?Set APP_HOST}
   REVERB_APP_ID: ${REVERB_APP_ID:?Set REVERB_APP_ID}
   REVERB_APP_KEY: ${REVERB_APP_KEY:?Set REVERB_APP_KEY}
@@ -46,6 +48,9 @@ x-api-environment: &api-environment
   SESSION_DOMAIN: ${SESSION_DOMAIN-}
   SESSION_DRIVER: redis
   SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+  TASK_RECONCILE_BATCH_SIZE: ${TASK_RECONCILE_BATCH_SIZE:-100}
+  TASK_RECONCILE_PROCESSING_AFTER_SECONDS: ${TASK_RECONCILE_PROCESSING_AFTER_SECONDS:-600}
+  TASK_RECONCILE_QUEUED_AFTER_SECONDS: ${TASK_RECONCILE_QUEUED_AFTER_SECONDS:-60}
 
 x-api-runtime: &api-runtime
   <<: *api-image
@@ -62,7 +67,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/proxy/Dockerfile
-    image: vinext-ai-starter-proxy:${IMAGE_TAG:-local}
+    image: vinext-laravel-starter-proxy:${IMAGE_TAG:-local}
     depends_on:
       api:
         condition: service_healthy
@@ -83,7 +88,7 @@ services:
       dockerfile: infra/docker/web/Dockerfile
       args:
         NEXT_PUBLIC_REVERB_APP_KEY: ${REVERB_APP_KEY:?Set REVERB_APP_KEY}
-    image: vinext-ai-starter-web:${IMAGE_TAG:-local}
+    image: vinext-laravel-starter-web:${IMAGE_TAG:-local}
     environment:
       HOST: 0.0.0.0
       NODE_ENV: production
@@ -99,7 +104,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/api-nginx/Dockerfile
-    image: vinext-ai-starter-api-nginx:${IMAGE_TAG:-local}
+    image: vinext-laravel-starter-api-nginx:${IMAGE_TAG:-local}
     depends_on:
       api-php:
         condition: service_healthy
@@ -120,7 +125,7 @@ services:
 
   migrate:
     <<: *api-image
-    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    command: ["php", "artisan", "migrate", "--seed", "--force", "--no-interaction"]
     environment: *api-environment
     depends_on:
       postgres:

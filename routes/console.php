@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\DevCommands;
+use Illuminate\Support\Facades\Schedule;
 
 DevCommands::artisan(
     'serve --host='.config('development.api_host').' --port='.((int) config('development.api_port')),
@@ -11,3 +12,18 @@ DevCommands::artisan(
 // process the framework registers for this package.json would recurse
 // into `artisan dev` itself.
 DevCommands::except('vite');
+
+Schedule::command('tasks:reconcile')
+    ->everyMinute()
+    ->onOneServer()
+    ->withoutOverlapping();
+
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->onOneServer()
+    ->withoutOverlapping();
+
+Schedule::command('queue:prune-failed --hours=168')
+    ->daily()
+    ->onOneServer()
+    ->withoutOverlapping();

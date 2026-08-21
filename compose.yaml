@@ -1,4 +1,4 @@
-name: vinext-ai-starter
+name: vinext-laravel-starter
 
 services:
   caddy:

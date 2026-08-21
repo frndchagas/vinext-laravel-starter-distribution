@@ -1,10 +1,15 @@
 "use client";
 
-import { useGetMe, useLogout, useResendEmailVerification } from "@vinext-ai-starter/api-client";
+import {
+  useGetMe,
+  useLogout,
+  useResendEmailVerification,
+} from "@vinext-laravel-starter/api-client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import { problemDetail } from "@/lib/problem";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -13,6 +18,10 @@ export default function VerifyEmailPage() {
   const logoutMutation = useLogout();
 
   const me = meQuery.data?.status === 200 ? meQuery.data.data : undefined;
+  const rateLimitMessage =
+    resendMutation.data?.status === 429
+      ? problemDetail(resendMutation.data.data, "Too many requests. Try again shortly.")
+      : undefined;
 
   useEffect(() => {
     if (meQuery.data?.status === 401) {
@@ -37,6 +46,11 @@ export default function VerifyEmailPage() {
         <output className="block rounded-lg bg-primary/10 px-3 py-2 text-sm text-foreground">
           A new verification link is on its way.
         </output>
+      ) : null}
+      {rateLimitMessage ? (
+        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {rateLimitMessage}
+        </p>
       ) : null}
       <Button size="lg" disabled={resendMutation.isPending} onClick={() => resendMutation.mutate()}>
         {resendMutation.isPending ? "Sending…" : "Resend verification email"}

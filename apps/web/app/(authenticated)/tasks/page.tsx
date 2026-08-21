@@ -4,12 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getListTasksQueryKey,
   useCreateTask,
-  useGetMe,
   useListTasks,
   type Task,
-} from "@vinext-ai-starter/api-client";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+} from "@vinext-laravel-starter/api-client";
+import type { TaskStatusChangedPayload } from "@vinext-laravel-starter/realtime-contract";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,26 +26,13 @@ const STATE_STYLES: Record<Task["state"], string> = {
 };
 
 export default function TasksPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const hydrated = useHydrated();
-  const meQuery = useGetMe();
   const tasksQuery = useListTasks();
   const createMutation = useCreateTask();
   const formRef = useRef<HTMLFormElement>(null);
 
-  const me = meQuery.data?.status === 200 ? meQuery.data.data : undefined;
   const tasks = tasksQuery.data?.status === 200 ? tasksQuery.data.data.data : [];
-
-  useEffect(() => {
-    if (meQuery.data?.status === 401) {
-      router.replace("/login");
-    }
-
-    if (me !== undefined && !me.email_verified) {
-      router.replace("/verify-email");
-    }
-  }, [meQuery.data?.status, me, router]);
 
   const activeIds = tasks
     .filter((task) => task.state === "queued" || task.state === "processing")
@@ -55,7 +40,7 @@ export default function TasksPage() {
     .join(",");
 
   useEffect(() => {
-    if (me === undefined || !me.email_verified || activeIds === "") {
+    if (activeIds === "") {
       return undefined;
     }
 
@@ -66,9 +51,13 @@ export default function TasksPage() {
     });
 
     for (const id of ids) {
-      echo.private(`tasks.${id}`).listen(".TaskStatusChanged", () => {
-        void queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
-      });
+      echo
+        .private(`tasks.${id}`)
+        .listen(".TaskStatusChanged", (event: TaskStatusChangedPayload) => {
+          if (event.id === id) {
+            void queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+          }
+        });
     }
 
     return () => {
@@ -78,7 +67,7 @@ export default function TasksPage() {
         echo.leave(`tasks.${id}`);
       }
     };
-  }, [activeIds, me, queryClient]);
+  }, [activeIds, queryClient]);
 
   const errors =
     createMutation.data?.status === 422 ? validationErrors(createMutation.data.data) : {};
@@ -104,17 +93,9 @@ export default function TasksPage() {
     );
   }
 
-  if (me === undefined) {
-    return (
-      <main className="flex min-h-dvh items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading session…</p>
-      </main>
-    );
-  }
-
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 bg-background px-6 py-12">
-      <header className="flex items-start justify-between gap-4 border-b border-border pb-6">
+    <>
+      <header className="border-b border-border pb-6">
         <div>
           <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Reference flow
@@ -126,9 +107,6 @@ export default function TasksPage() {
             Idempotent creation, queued processing and live state over the private channel.
           </p>
         </div>
-        <Link href="/dashboard" className="text-sm text-primary hover:underline">
-          Dashboard
-        </Link>
       </header>
 
       <form
@@ -186,6 +164,6 @@ export default function TasksPage() {
           </article>
         ))}
       </section>
-    </main>
+    </>
   );
 }

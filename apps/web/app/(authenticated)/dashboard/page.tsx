@@ -1,40 +1,17 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { getGetMeQueryKey, useGetMe, useLogout } from "@vinext-ai-starter/api-client";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { useAuthenticatedUser } from "@/components/authenticated-shell";
 import { disconnectEcho, getEcho } from "@/lib/echo";
 
 type RealtimeStatus = "connecting" | "connected" | "unavailable";
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const meQuery = useGetMe();
-  const logoutMutation = useLogout();
+  const me = useAuthenticatedUser();
   const [realtime, setRealtime] = useState<RealtimeStatus>("connecting");
 
-  const me = meQuery.data?.status === 200 ? meQuery.data.data : undefined;
-
   useEffect(() => {
-    if (meQuery.data?.status === 401) {
-      router.replace("/login");
-    }
-
-    if (me !== undefined && !me.email_verified) {
-      router.replace("/verify-email");
-    }
-  }, [meQuery.data?.status, me, router]);
-
-  useEffect(() => {
-    if (me === undefined || !me.email_verified) {
-      return undefined;
-    }
-
     const echo = getEcho();
     const channel = echo.private(`users.${me.id}`);
 
@@ -45,52 +22,21 @@ export default function DashboardPage() {
       echo.leave(`users.${me.id}`);
       disconnectEcho();
     };
-  }, [me]);
-
-  function signOut() {
-    logoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        disconnectEcho();
-        queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
-        router.push("/login");
-      },
-    });
-  }
-
-  if (me === undefined) {
-    return (
-      <main className="flex min-h-dvh items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading session…</p>
-      </main>
-    );
-  }
+  }, [me.id]);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-8 bg-background px-6 py-12">
-      <header className="flex items-start justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Dashboard
-          </p>
-          <h1 className="mt-1 font-[family-name:var(--font-app-display)] text-3xl text-foreground">
-            {me.name}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{me.email}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/tasks" className="text-sm text-primary hover:underline">
-            Tasks
-          </Link>
-          <Link href="/settings" className="text-sm text-primary hover:underline">
-            Settings
-          </Link>
-          <Button variant="outline" disabled={logoutMutation.isPending} onClick={signOut}>
-            Sign out
-          </Button>
-        </div>
+    <>
+      <header className="border-b border-border pb-6">
+        <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          Dashboard
+        </p>
+        <h1 className="mt-1 font-[family-name:var(--font-app-display)] text-4xl text-balance">
+          Welcome, {me.name}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{me.email}</p>
       </header>
 
-      <section className="grid gap-6 sm:grid-cols-2">
+      <section className="grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Session
@@ -119,7 +65,7 @@ export default function DashboardPage() {
           <h2 className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
             Realtime
           </h2>
-          <p className="mt-3 flex items-center gap-2 text-sm">
+          <p className="mt-3 flex items-center gap-2 text-sm" aria-live="polite">
             <span
               aria-hidden
               className={
@@ -139,6 +85,6 @@ export default function DashboardPage() {
           </p>
         </div>
       </section>
-    </main>
+    </>
   );
 }

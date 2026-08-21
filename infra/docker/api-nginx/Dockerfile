@@ -1,4 +1,9 @@
-FROM nginx:1.28.3-alpine3.23
+FROM alpine:3.23.5
+
+RUN apk upgrade --no-cache \
+    && apk add --no-cache nginx \
+    && mkdir -p /var/lib/nginx/logs \
+    && ln -sf /dev/stderr /var/lib/nginx/logs/error.log
 
 COPY infra/docker/api-nginx/nginx.conf /etc/nginx/nginx.conf
 COPY --chown=nginx:nginx public /var/www/html/public

@@ -1,60 +1,36 @@
-# Vinext AI Starter for Laravel
+# Vinext Laravel Starter
 
-[![CI](https://github.com/frndchagas/vinext-ai-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/frndchagas/vinext-ai-starter/actions/workflows/ci.yml)
+A ready-to-own Laravel and Vinext application with same-origin sessions, profile and password settings, optional TOTP, generated HTTP contracts, Redis queues, Reverb and an idempotent Task example.
 
-A Laravel and Vinext foundation for coding agents.
+This repository is an application snapshot. There is no starter updater, so you can change every part of it as your product evolves.
 
-[Live demo](https://vinext-ai-starter.dev-0.fortetecnologias.com.br) · [Deployment guide](docs/deployment.md)
-
-The starter provides same-origin sessions, profile and password settings, optional TOTP, explicit HTTP and realtime contracts, a generated TypeScript client, role and permission storage, Redis queues, Reverb and one idempotent asynchronous flow. "AI-first" refers to repository instructions and executable gates; no AI provider ships in the current release.
-
-Vinext is still in beta and the React Compiler integration is experimental. CI verifies local setup, browser behavior, a fresh template snapshot and the production container topology.
-
-## Quickstart
+## Start locally
 
 Requirements: Bun 1.4+, Node.js 24+, PHP 8.3+, Composer 2.10, Docker Compose and Git.
 
 ```bash
-git clone https://github.com/frndchagas/vinext-ai-starter.git
-cd vinext-ai-starter
-cp .env.example .env
-bun run bootstrap
-bun run dev
+composer run dev
 ```
 
-Open `http://localhost:13000`, register a User and use Mailpit at `http://localhost:18025` to verify the email. The Tasks page demonstrates queued processing and private realtime updates.
+The command installs locked dependencies, starts the local services, preserves an existing Laravel application key, runs migrations and then starts Vinext, Laravel, Horizon and Reverb.
 
-Stable releases are also available through the Laravel installer:
+Open the application at `http://localhost:13000` and Mailpit at `http://localhost:18025`. Register a User, verify the email through Mailpit and open Tasks to exercise the queued realtime flow.
 
-```bash
-laravel new my-app --using=frndchagas/vinext-ai-starter --phpunit --bun --no-boost
-```
+## Main commands
 
-See [Getting started](docs/getting-started.md) for the expected services, shutdown steps and first validation.
+| Command                   | Purpose                                                                |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `bun run bootstrap`       | Prepare dependencies, infrastructure, the application key and database |
+| `bun run dev`             | Start the development stack after bootstrap                            |
+| `bun run check`           | Run formatting checks, lint, types, unit tests and the Vinext build    |
+| `bun run contracts:check` | Validate contracts and detect generated artifact drift                 |
+| `bun run audit`           | Check dependency deduplication and security advisories                 |
+| `bun run test:e2e`        | Run the Playwright browser journeys                                    |
+| `bun run test:production` | Build and exercise the production containers                           |
+| `bun run infra:down`      | Stop local infrastructure without deleting volumes                     |
 
-## Commands
+Start by reading [Customize the starter](docs/customizing.md), then use the [architecture](docs/architecture.md) and [deployment](docs/deployment.md) guides as references.
 
-| Command | Purpose |
-| --- | --- |
-| `bun run bootstrap` | Install locked dependencies, start infrastructure and migrate |
-| `bun run dev` | Start Caddy dependencies, Vinext, Laravel, Horizon and Reverb |
-| `bun run check` | Format check, lint, types, unit tests and Vinext build |
-| `bun run contracts:check` | Validate AsyncAPI and detect generated HTTP drift |
-| `bun run audit` | Check dependency deduplication and advisories |
-| `bun run test:e2e` | Run the Playwright browser journeys |
-| `bun run test:production` | Build and exercise the production containers |
-| `bun run test:template` | Create and verify a fresh template snapshot |
-| `bun run infra:down` | Stop local Docker infrastructure without deleting volumes |
+## Source
 
-## Documentation
-
-- [Documentation index](docs/README.md)
-- [Customize the starter](docs/customizing.md)
-- [Architecture](docs/architecture.md)
-- [Deployment](docs/deployment.md)
-- [Laravel and Packagist distribution](docs/distribution.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
-
-This independent MIT-licensed project is not affiliated with or endorsed by Cloudflare or Laravel.
+This application was generated from [Vinext Laravel Starter](https://github.com/frndchagas/vinext-laravel-starter). The `.source-tag` and `.source-commit` files record the exact release source. This independent MIT-licensed project is not affiliated with or endorsed by Cloudflare or Laravel.

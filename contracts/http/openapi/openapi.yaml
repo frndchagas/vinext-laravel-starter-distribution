@@ -1,13 +1,145 @@
 openapi: 3.1.0
 info:
-  title: Vinext AI Starter API
+  title: Vinext Laravel Starter API
   version: 0.0.0
 tags:
   - name: Auth
   - name: Identity
+  - name: Administration
   - name: Infrastructure
   - name: Tasks
 paths:
+  /api/v1/admin/users:
+    get:
+      operationId: listAdminUsers
+      description: Search and cursor-page through safe User identity and role metadata. Requires users.view.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserPage'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - Administration
+  /api/v1/admin/users/{id}/role:
+    patch:
+      operationId: updateAdminUserRole
+      description: Replace another User's canonical role. Requires users.manage.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          description: Access is forbidden.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                    format: int32
+                  detail:
+                    type: string
+                  code:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Administration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdminUserRoleRequest'
+  /api/v1/auth/capabilities:
+    get:
+      operationId: getAuthCapabilities
+      description: Public authentication capabilities controlled by Laravel deployment configuration.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthCapabilities'
+      tags:
+        - Auth
   /api/v1/auth/email/verification-notification:
     post:
       operationId: resendEmailVerification
@@ -18,6 +150,17 @@ paths:
           description: The request has been accepted for processing, but processing has not yet completed.
         '401':
           description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          description: Client error
+          headers:
+            Retry-After:
+              required: false
+              schema:
+                type: string
           content:
             application/problem+json:
               schema:
@@ -72,6 +215,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '429':
+          description: Client error
+          headers:
+            Retry-After:
+              required: false
+              schema:
+                type: string
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
       tags:
         - Auth
   /api/v1/auth/forgot-password:
@@ -121,6 +275,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ValidationProblem'
+        '429':
+          description: Client error
+          headers:
+            Retry-After:
+              required: false
+              schema:
+                type: string
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
       tags:
         - Auth
       requestBody:
@@ -164,6 +329,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ValidationProblem'
+        '429':
+          description: Client error
+          headers:
+            Retry-After:
+              required: false
+              schema:
+                type: string
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
       tags:
         - Auth
       requestBody:
@@ -224,6 +400,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ValidationProblem'
+        '429':
+          description: Client error
+          headers:
+            Retry-After:
+              required: false
+              schema:
+                type: string
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
       tags:
         - Auth
       requestBody:
@@ -232,6 +419,57 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TwoFactorChallengeRequest'
+  /api/v1/auth/user:
+    delete:
+      operationId: deleteCurrentUser
+      description: Permanently delete the authenticated User and resources owned only by that identity.
+      parameters: []
+      responses:
+        '204':
+          description: There is no content to send for this request, but the headers may be useful.
+        '401':
+          description: Access is unauthorized.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                    format: int32
+                  detail:
+                    type: string
+                  code:
+                    type: string
+                required:
+                  - type
+                  - title
+                  - status
+                  - code
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ValidationProblem'
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteCurrentUserRequest'
   /api/v1/auth/user/confirm-password:
     post:
       operationId: confirmPassword
@@ -701,6 +939,68 @@ paths:
         - Infrastructure
 components:
   schemas:
+    AdminUser:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - email_verified
+        - roles
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Opaque identifier. Clients must not infer meaning from its value.
+        name:
+          type: string
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserRole'
+        created_at:
+          type: string
+          format: date-time
+    AdminUserPage:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+        meta:
+          type: object
+          properties:
+            next_cursor:
+              anyOf:
+                - type: string
+                - type: 'null'
+            prev_cursor:
+              anyOf:
+                - type: string
+                - type: 'null'
+          required:
+            - next_cursor
+            - prev_cursor
+    AdminUserRole:
+      type: string
+      enum:
+        - member
+        - admin
+    AuthCapabilities:
+      type: object
+      required:
+        - registration
+      properties:
+        registration:
+          type: boolean
     CreateTaskRequest:
       type: object
       required:
@@ -709,6 +1009,13 @@ components:
         input:
           type: string
           maxLength: 10000
+    DeleteCurrentUserRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
     LoginRequest:
       type: object
       required:
@@ -916,6 +1223,13 @@ components:
           type: string
         url:
           type: string
+    UpdateAdminUserRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          $ref: '#/components/schemas/AdminUserRole'
     UpdatePasswordRequest:
       type: object
       required:

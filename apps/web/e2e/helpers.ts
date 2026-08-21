@@ -1,5 +1,8 @@
+import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
+import { AxeBuilder } from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
 const MAILPIT_URL = process.env.E2E_MAILPIT_URL ?? "http://localhost:18025";
@@ -57,6 +60,29 @@ export async function registerVerifiedUser(
   const verificationLink = await findVerificationLink(email);
   await page.goto(verificationLink);
   await expect(page).toHaveURL(/\/dashboard\?verified=1$/, { timeout: 20_000 });
+  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible({ timeout: 20_000 });
+}
+
+export function grantAdmin(email: string): void {
+  execFileSync("php", ["artisan", "app:grant-admin", email], {
+    cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+    stdio: "pipe",
+  });
+}
+
+export async function expectNoAccessibilityViolations(page: Page): Promise<void> {
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+  const summary = results.violations.map((violation) => ({
+    help: violation.help,
+    impact: violation.impact,
+    nodes: violation.nodes.map((node) => ({
+      details: node.any.map((check) => check.message),
+      target: node.target,
+    })),
+    rule: violation.id,
+  }));
+
+  expect(summary, "Expected no WCAG A or AA violations").toEqual([]);
 }
 
 export function generateTotp(secret: string, now = Date.now()): string {

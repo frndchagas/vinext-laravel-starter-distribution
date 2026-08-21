@@ -6,10 +6,12 @@ use App\Jobs\ProcessTask;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\CreateTask;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -54,6 +56,34 @@ class CreateTaskTest extends TestCase
         $this->assertSame(1, Task::query()->count());
 
         Bus::assertDispatchedTimes(ProcessTask::class, 1);
+    }
+
+    public function test_a_failed_redis_dispatch_is_recovered_by_an_idempotent_replay(): void
+    {
+        $originalDispatcher = $this->app->make(Dispatcher::class);
+        $failingDispatcher = Mockery::mock(Dispatcher::class);
+        $failingDispatcher->shouldReceive('dispatch')->once()->andThrow(new RuntimeException('redis unavailable'));
+        $this->app->instance(Dispatcher::class, $failingDispatcher);
+
+        $user = User::factory()->create();
+        $key = (string) Str::uuid7();
+
+        $first = $this->actingAs($user)
+            ->postJson('/api/v1/tasks', ['input' => 'recover delivery'], ['Idempotency-Key' => $key])
+            ->assertAccepted();
+
+        $this->assertDatabaseCount('tasks', 1);
+        $this->assertDatabaseCount('idempotency_keys', 1);
+
+        $this->app->instance(Dispatcher::class, $originalDispatcher);
+        Bus::fake([ProcessTask::class]);
+
+        $second = $this->actingAs($user)
+            ->postJson('/api/v1/tasks', ['input' => 'recover delivery'], ['Idempotency-Key' => $key])
+            ->assertAccepted();
+
+        $this->assertSame($first->json('id'), $second->json('id'));
+        Bus::assertDispatched(ProcessTask::class, fn (ProcessTask $job) => $job->taskId === $first->json('id'));
     }
 
     public function test_repeating_the_key_with_a_different_payload_returns_conflict(): void

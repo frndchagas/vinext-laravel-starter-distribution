@@ -4,5 +4,5 @@
 - Use shadcn/ui components with the configured Base UI primitive set.
 - Do not mix Radix or React Aria primitives into the same component system.
 - Use the generated API client for every Laravel request.
-- Keep TypeScript strict. The generated fetcher provides compile-time types but does not parse responses automatically; use the generated Zod schemas where runtime validation is required.
+- Keep TypeScript strict. The generated fetcher validates documented responses with generated Zod schemas in development and tests; production keeps compile-time types without response parsing.
 - Run `bun run format`, `bun run lint`, `bun run typecheck` and `bun run test` in this directory for focused changes.

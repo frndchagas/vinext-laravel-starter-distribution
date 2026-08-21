@@ -4,7 +4,7 @@
 }
 
 :13000 {
-	@api path /api/* /sanctum/* /up
+	@api path /api/* /sanctum/* /up /ready
 	handle @api {
 		reverse_proxy {$API_UPSTREAM:host.docker.internal:18000}
 	}

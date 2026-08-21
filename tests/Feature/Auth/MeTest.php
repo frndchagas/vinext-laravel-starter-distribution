@@ -39,9 +39,9 @@ class MeTest extends TestCase
         $response->assertJsonFragment(['roles' => ['admin']]);
 
         $permissions = $response->json('permissions');
+        $this->assertCount(2, $permissions);
         $this->assertContains('users.view', $permissions);
         $this->assertContains('users.manage', $permissions);
-        $this->assertContains('settings.manage', $permissions);
     }
 
     public function test_unverified_users_can_still_query_their_session(): void

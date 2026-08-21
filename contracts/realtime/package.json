@@ -1,12 +1,20 @@
 {
-  "name": "@vinext-ai-starter/realtime-contract",
+  "name": "@vinext-laravel-starter/realtime-contract",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./generated/index.ts"
+  },
   "scripts": {
+    "check": "bun run validate && bun run generate && git diff --exit-code -- generated",
+    "generate": "bun run generate.mjs",
+    "typecheck": "tsc --noEmit",
     "validate": "bun run validate.mjs"
   },
   "devDependencies": {
-    "@asyncapi/parser": "3.6.3"
+    "@asyncapi/parser": "3.6.3",
+    "oxfmt": "0.64.0",
+    "typescript": "7.0.2"
   }
 }
