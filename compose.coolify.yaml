@@ -68,6 +68,9 @@ services:
       context: .
       dockerfile: infra/docker/proxy/Dockerfile
     image: vinext-laravel-starter-proxy:${IMAGE_TAG:-local}
+    environment:
+      APP_URL: ${APP_URL:?Set APP_URL}
+      LEGACY_APP_HOST: ${LEGACY_APP_HOST:-legacy.invalid}
     depends_on:
       api:
         condition: service_healthy

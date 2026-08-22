@@ -8,6 +8,9 @@
 }
 
 :8080 {
+	@legacy host {$LEGACY_APP_HOST:legacy.invalid}
+	redir @legacy {$APP_URL}{uri} permanent
+
 	header {
 		-Access-Control-Allow-Credentials
 		-Access-Control-Allow-Headers

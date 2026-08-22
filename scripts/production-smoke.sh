@@ -17,6 +17,7 @@ export APP_NAME="Vinext production smoke"
 export APP_URL="http://127.0.0.1:$production_port"
 export FEATURE_REGISTRATION=true
 export IMAGE_TAG="$image_tag"
+export LEGACY_APP_HOST=legacy.example.invalid
 export MAIL_MAILER=log
 export POSTGRES_PASSWORD=smoke-password
 export PRODUCTION_PORT="$production_port"
@@ -76,6 +77,16 @@ docker tag "$redis_image_id" "vinext-laravel-starter-redis:$image_tag"
 curl --fail --silent --show-error --dump-header "$headers_file" "$APP_URL/" >/dev/null
 curl --fail --silent --show-error "$APP_URL/up" >/dev/null
 curl --fail --silent --show-error "$APP_URL/ready" >/dev/null
+legacy_redirect=$(
+    curl --silent --show-error --output /dev/null \
+        --header "Host: $LEGACY_APP_HOST" \
+        --write-out '%{http_code} %{redirect_url}' \
+        "$APP_URL/legacy/path?from=smoke"
+)
+if [[ "$legacy_redirect" != "301 $APP_URL/legacy/path?from=smoke" ]]; then
+    echo "Legacy host redirect was $legacy_redirect." >&2
+    exit 1
+fi
 capabilities=$(
     curl --fail --silent --show-error "$APP_URL/api/v1/auth/capabilities"
 )
@@ -257,4 +268,4 @@ if [[ "$restored_user_count" != 1 ]]; then
     exit 1
 fi
 
-echo "Production smoke passed with readiness, security headers, $applied_migrations migrations, a completed queued Task and a restored PostgreSQL backup."
+echo "Production smoke passed with readiness, security headers, legacy redirect, $applied_migrations migrations, a completed queued Task and a restored PostgreSQL backup."

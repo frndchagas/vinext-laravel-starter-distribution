@@ -12,6 +12,8 @@ cp .env.production.example .env.production
 
 Set unique values for `APP_KEY`, `POSTGRES_PASSWORD`, `REVERB_APP_KEY` and `REVERB_APP_SECRET`. `APP_URL` includes the public scheme and host. `APP_HOST` contains only the host, plus a port when the public URL uses one.
 
+`LEGACY_APP_HOST` is optional. Set it to one previous hostname to return a permanent redirect to `APP_URL`; the proxy preserves the path and query. Leave it unset when no redirect is needed.
+
 The example logs mail instead of sending it. Configure a real SMTP provider, including `MAIL_SCHEME`, before setting `FEATURE_REGISTRATION=true` or enabling password reset for users. Public registration defaults to disabled.
 
 `/up` proves that Laravel can serve a request. `/ready` also checks the configured database and cache. Use `/ready` to decide whether a deployment should receive traffic; do not restart PHP merely because an external dependency is temporarily unavailable.
