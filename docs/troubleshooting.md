@@ -19,7 +19,7 @@ Check the effective Docker port and the Laravel connection before running anothe
 
 ```bash
 docker compose port postgres 5432
-cd the repository root && php artisan about --only=environment
+php artisan about --only=environment
 ```
 
 Use `bun run bootstrap` from the root. It passes the root `POSTGRES_PORT` to Laravel during setup.
@@ -67,4 +67,4 @@ docker version
 docker compose version
 ```
 
-Then run `bun ci`, `composer install --working-dir the repository root --no-interaction` and `docker compose config --quiet` separately to identify the failing boundary.
+Then run `bun ci`, `composer install --no-interaction` and `docker compose config --quiet` separately to identify the failing boundary.

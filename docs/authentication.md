@@ -29,7 +29,6 @@ The `admin` and `member` roles are persisted by an idempotent seeder and returne
 The first admin is promoted explicitly:
 
 ```bash
-cd the repository root
 php artisan app:grant-admin user@example.com
 ```
 

@@ -1,4 +1,4 @@
-FROM golang:1.26.6-alpine3.23 AS build
+FROM golang:1.26.7-alpine3.24 AS build
 
 WORKDIR /src
 
@@ -21,7 +21,7 @@ RUN CGO_ENABLED=0 go build \
     -o /usr/bin/caddy \
     .
 
-FROM alpine:3.23.5
+FROM alpine:3.24.1
 
 COPY infra/docker/proxy/Caddyfile /etc/caddy/Caddyfile
 
@@ -40,6 +40,6 @@ USER caddy
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=6 \
-    CMD ["wget", "--quiet", "--spider", "http://127.0.0.1:8080/up"]
+    CMD wget --quiet --spider --header "Host: $APP_HOST" http://127.0.0.1:8080/up
 
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

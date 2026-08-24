@@ -18,7 +18,7 @@ An idempotent replay attempts delivery again. The scheduler also reconciles queu
 
 `ShouldBeUnique` reduces duplicate dispatches and expires its delivery lock after three minutes, but it is not the correctness boundary. Each serialized job carries a processing token. The atomic transition from `queued` to `processing` stores that token. A retry or reconciled stale claim with the same token may continue; another worker exits without completing or failing the Task.
 
-External providers should receive an idempotency key derived from the Task identifier when they support one. The starter cannot promise exactly-once effects across a provider call and a process crash.
+External providers should receive an idempotency key derived from the Task identifier when they support one. The application cannot promise exactly-once effects across a provider call and a process crash.
 
 ## Notify after persistence
 

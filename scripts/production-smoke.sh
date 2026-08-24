@@ -9,11 +9,21 @@ cookie_jar=$(mktemp)
 backup_root=$(mktemp -d)
 backup_file="$backup_root/starter.dump"
 headers_file="$backup_root/headers.txt"
+home_body_file="$backup_root/home.html"
+image_headers_file="$backup_root/image-headers.txt"
+login_body_file="$backup_root/login.html"
+readiness_body_file="$backup_root/readiness.json"
+readiness_headers_file="$backup_root/readiness-headers.txt"
+robots_body_file="$backup_root/robots.txt"
 
 export APP_HOST="127.0.0.1:$production_port"
 export APP_KEY
 APP_KEY=$(php -r 'echo "base64:".base64_encode(random_bytes(32));')
 export APP_NAME="Vinext production smoke"
+export APP_DESCRIPTION="Production metadata smoke."
+export APP_INDEXABLE=true
+export APP_REPOSITORY_URL=""
+export APP_SOCIAL_IMAGE=""
 export APP_URL="http://127.0.0.1:$production_port"
 export FEATURE_REGISTRATION=true
 export IMAGE_TAG="$image_tag"
@@ -24,7 +34,13 @@ export PRODUCTION_PORT="$production_port"
 export REVERB_APP_ID=starter
 export REVERB_APP_KEY=smoke-key
 export REVERB_APP_SECRET=smoke-secret
+export REVERB_ALLOWED_ORIGINS=127.0.0.1
 export SESSION_SECURE_COOKIE=false
+if [[ "${PRODUCTION_BROWSER_SMOKE:-false}" == true ]]; then
+    export TASK_SIMULATED_DELAY_MS=5000
+else
+    export TASK_SIMULATED_DELAY_MS=0
+fi
 export COMPOSE_PROJECT_NAME="$project_name"
 export COMPOSE_FILE="compose.production.yaml:compose.production.local.yaml"
 
@@ -40,7 +56,15 @@ cleanup() {
     set +e
     "${compose[@]}" down --volumes --remove-orphans
     rm -f "$cookie_jar"
-    rm -f "$backup_file" "$headers_file"
+    rm -f \
+        "$backup_file" \
+        "$headers_file" \
+        "$home_body_file" \
+        "$image_headers_file" \
+        "$login_body_file" \
+        "$readiness_body_file" \
+        "$readiness_headers_file" \
+        "$robots_body_file"
     rmdir "$backup_root" 2>/dev/null || true
 }
 
@@ -74,9 +98,108 @@ redis_image_id=$(docker inspect --format '{{.Image}}' "$("${compose[@]}" ps --qu
 docker tag "$postgres_image_id" "vinext-laravel-starter-postgres:$image_tag"
 docker tag "$redis_image_id" "vinext-laravel-starter-redis:$image_tag"
 
-curl --fail --silent --show-error --dump-header "$headers_file" "$APP_URL/" >/dev/null
+curl --fail --silent --show-error \
+    --dump-header "$headers_file" \
+    --output "$home_body_file" \
+    "$APP_URL/"
 curl --fail --silent --show-error "$APP_URL/up" >/dev/null
-curl --fail --silent --show-error "$APP_URL/ready" >/dev/null
+curl --fail --silent --show-error --output "$login_body_file" "$APP_URL/login"
+curl --fail --silent --show-error --output "$robots_body_file" "$APP_URL/robots.txt"
+if [[ -n "$APP_SOCIAL_IMAGE" ]]; then
+    curl --fail --silent --show-error \
+        --dump-header "$image_headers_file" \
+        --output /dev/null \
+        "$APP_URL$APP_SOCIAL_IMAGE"
+fi
+
+if ! php -r '
+        $home = file_get_contents($argv[1]);
+        $login = file_get_contents($argv[2]);
+        $robots = file_get_contents($argv[3]);
+        $url = $argv[4];
+        $repositoryUrl = $argv[5];
+        $socialImage = $argv[6];
+        $twitterCard = $socialImage === "" ? "summary" : "summary_large_image";
+        $homePatterns = [
+            "~<title>Vinext production smoke</title>~",
+            "~<meta name=\"description\" content=\"Production metadata smoke\.\"\s*/>~",
+            "~<meta name=\"robots\" content=\"(?:index, follow|follow, index)\"\s*/>~",
+            "~<link rel=\"canonical\" href=\"".preg_quote($url, "~")."/?\"\s*/>~",
+            "~<meta property=\"og:url\" content=\"".preg_quote($url, "~")."/?\"\s*/>~",
+            "~<meta name=\"twitter:card\" content=\"".preg_quote($twitterCard, "~")."\"\s*/>~",
+        ];
+        if ($socialImage !== "") {
+            $imageUrl = str_starts_with($socialImage, "/")
+                ? rtrim($url, "/").$socialImage
+                : $socialImage;
+            $homePatterns[] = "~<meta property=\"og:image\" content=\"".preg_quote($imageUrl, "~")."\"\s*/>~";
+        } elseif (str_contains($home, "property=\"og:image\"")) {
+            exit(1);
+        }
+        if ($repositoryUrl !== "") {
+            $homePatterns[] = "~href=\"".preg_quote($repositoryUrl, "~")."\"~";
+        } elseif (str_contains($home, "github.com/frndchagas/vinext-laravel-starter")) {
+            exit(1);
+        }
+        foreach ($homePatterns as $pattern) {
+            if (preg_match($pattern, $home) !== 1) exit(1);
+        }
+        if (preg_match("~<meta name=\"robots\" content=\"nofollow, noindex\"\s*/>~", $login) !== 1) exit(1);
+        if (!str_contains($robots, "User-Agent: *") || !str_contains($robots, "Allow: /")) exit(1);
+    ' \
+        "$home_body_file" \
+        "$login_body_file" \
+        "$robots_body_file" \
+        "$APP_URL" \
+        "$APP_REPOSITORY_URL" \
+        "$APP_SOCIAL_IMAGE"; then
+    echo "Production metadata did not match the configured public identity." >&2
+    exit 1
+fi
+
+if [[ -n "$APP_SOCIAL_IMAGE" ]] && \
+    ! grep --ignore-case --quiet '^Content-Type: image/jpeg' "$image_headers_file"; then
+    echo "The Open Graph image was not served as JPEG." >&2
+    exit 1
+fi
+
+readiness_status=$(curl --silent --show-error \
+    --header 'Accept: application/json' \
+    --dump-header "$readiness_headers_file" \
+    --output "$readiness_body_file" \
+    --write-out '%{http_code}' \
+    "$APP_URL/ready")
+if [[ "$readiness_status" != 200 ]]; then
+    echo "/ready returned HTTP $readiness_status; expected 200." >&2
+    exit 1
+fi
+if ! php -r '
+        $data = json_decode(file_get_contents($argv[1]), true, flags: JSON_THROW_ON_ERROR);
+        $valid = ($data["status"] ?? null) === "ready"
+            && ($data["checks"]["database"] ?? null) === "ok"
+            && ($data["checks"]["cache"] ?? null) === "ok";
+        exit($valid ? 0 : 1);
+    ' "$readiness_body_file"; then
+    echo "/ready returned an invalid readiness document." >&2
+    exit 1
+fi
+readiness_correlation_id=$(
+    awk -F ': *' '
+        tolower($1) == "x-correlation-id" {
+            gsub(/\r/, "", $2);
+            print $2;
+            exit;
+        }
+    ' "$readiness_headers_file"
+)
+if [[ ! "$readiness_correlation_id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
+    echo "/ready returned an invalid X-Correlation-Id header." >&2
+    exit 1
+fi
+if grep --ignore-case --quiet '^Set-Cookie:' "$readiness_headers_file"; then
+    echo "/ready issued a session or CSRF cookie." >&2
+    exit 1
+fi
 legacy_redirect=$(
     curl --silent --show-error --output /dev/null \
         --header "Host: $LEGACY_APP_HOST" \
@@ -87,6 +210,25 @@ if [[ "$legacy_redirect" != "301 $APP_URL/legacy/path?from=smoke" ]]; then
     echo "Legacy host redirect was $legacy_redirect." >&2
     exit 1
 fi
+
+unexpected_host_status=$(curl --silent --show-error --output /dev/null \
+    --header 'Host: unexpected.example.invalid' \
+    --write-out '%{http_code}' \
+    "$APP_URL/")
+if [[ "$unexpected_host_status" != 421 ]]; then
+    echo "Unexpected Host returned $unexpected_host_status; expected 421." >&2
+    exit 1
+fi
+
+missing_port_status=$(curl --silent --show-error --output /dev/null \
+    --header 'Host: 127.0.0.1' \
+    --write-out '%{http_code}' \
+    "$APP_URL/")
+if [[ "$missing_port_status" != 421 ]]; then
+    echo "Host without the configured port returned $missing_port_status; expected 421." >&2
+    exit 1
+fi
+
 capabilities=$(
     curl --fail --silent --show-error "$APP_URL/api/v1/auth/capabilities"
 )
@@ -108,6 +250,25 @@ grep --ignore-case --quiet '^Referrer-Policy: strict-origin-when-cross-origin' "
 grep --ignore-case --quiet '^Strict-Transport-Security: max-age=31536000; includeSubDomains' "$headers_file"
 grep --ignore-case --quiet '^X-Content-Type-Options: nosniff' "$headers_file"
 grep --ignore-case --quiet '^X-Frame-Options: DENY' "$headers_file"
+
+content_security_policy=$(
+    awk '
+        tolower($0) ~ /^content-security-policy:/ {
+            sub(/^[^:]*:[[:space:]]*/, "");
+            sub(/\r$/, "");
+            print;
+            exit;
+        }
+    ' "$headers_file"
+)
+if [[ "$content_security_policy" != *"connect-src 'self' ws://$APP_HOST wss://$APP_HOST;"* ]]; then
+    echo "The CSP does not restrict WebSockets to APP_HOST." >&2
+    exit 1
+fi
+if [[ "$content_security_policy" == *"connect-src 'self' ws: wss:;"* ]]; then
+    echo "The CSP still allows WebSockets to arbitrary hosts." >&2
+    exit 1
+fi
 
 if grep --ignore-case --quiet '^Server:' "$headers_file"; then
     echo "The public proxy exposed an upstream Server header." >&2
@@ -218,6 +379,72 @@ if [[ "$task_completed" != true ]]; then
     exit 1
 fi
 
+if [[ "${PRODUCTION_BROWSER_SMOKE:-false}" == true ]]; then
+    E2E_BASE_URL="$APP_URL" \
+        E2E_PRODUCTION_EMAIL=smoke@example.invalid \
+        E2E_PRODUCTION_PASSWORD=smoke-password \
+        bun run --filter web test:e2e:production
+fi
+
+reconciled_task_id=$(
+    "${compose[@]}" exec -T postgres \
+        psql --username starter --dbname starter --quiet --tuples-only --no-align \
+        --command "
+            insert into tasks (
+                id,
+                user_id,
+                input,
+                state,
+                version,
+                correlation_id,
+                created_at,
+                updated_at
+            )
+            select
+                gen_random_uuid(),
+                id,
+                'scheduler recovery',
+                'queued',
+                1,
+                gen_random_uuid(),
+                now() - interval '10 minutes',
+                now() - interval '10 minutes'
+            from users
+            where email = 'smoke@example.invalid'
+            returning id;
+        " | sed -n '1p'
+)
+
+if [[ ! "$reconciled_task_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    echo "Could not create a queued Task for Scheduler recovery: $reconciled_task_id" >&2
+    exit 1
+fi
+
+reconciled_task_completed=false
+reconciled_task_version=""
+
+for _ in {1..90}; do
+    reconciled_task_result=$(
+        "${compose[@]}" exec -T postgres \
+            psql --username starter --dbname starter --tuples-only --no-align \
+            --command "select state || ' ' || version from tasks where id = '$reconciled_task_id';"
+    )
+    read -r reconciled_task_state reconciled_task_version <<<"$reconciled_task_result"
+
+    if [[ "$reconciled_task_state" == completed ]]; then
+        reconciled_task_completed=true
+        break
+    fi
+
+    sleep 1
+done
+
+if [[ "$reconciled_task_completed" != true || "$reconciled_task_version" != 3 ]]; then
+    echo "Scheduler did not recover Task $reconciled_task_id; state=$reconciled_task_state version=$reconciled_task_version." >&2
+    "${compose[@]}" logs --no-color --tail 200 scheduler worker >&2
+    exit 1
+fi
+
 source_task_count=$(
     "${compose[@]}" exec -T postgres \
         psql --username starter --dbname starter --tuples-only --no-align \
@@ -268,4 +495,4 @@ if [[ "$restored_user_count" != 1 ]]; then
     exit 1
 fi
 
-echo "Production smoke passed with readiness, security headers, legacy redirect, $applied_migrations migrations, a completed queued Task and a restored PostgreSQL backup."
+echo "Production smoke passed with public metadata, stateless readiness, security headers, legacy redirect, $applied_migrations migrations, direct and Scheduler-recovered Tasks, and a restored PostgreSQL backup."

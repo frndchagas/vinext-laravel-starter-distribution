@@ -12,21 +12,27 @@ cp .env.production.example .env.production
 
 Set unique values for `APP_KEY`, `POSTGRES_PASSWORD`, `REVERB_APP_KEY` and `REVERB_APP_SECRET`. `APP_URL` includes the public scheme and host. `APP_HOST` contains only the host, plus a port when the public URL uses one.
 
+`REVERB_ALLOWED_ORIGINS` is a comma-separated hostname list without ports. It defaults to `APP_HOST`, which is sufficient for regular HTTPS domains; set it explicitly when `APP_HOST` contains a development or smoke-test port.
+
+Set `APP_DESCRIPTION` for metadata and keep `APP_INDEXABLE=false` on previews or private products. Only the public root page becomes indexable when the flag is true; authenticated routes stay out of search results. `APP_REPOSITORY_URL` and `APP_SOCIAL_IMAGE` are optional and empty in generated applications. Relative social-image paths become absolute through `APP_URL`.
+
 `LEGACY_APP_HOST` is optional. Set it to one previous hostname to return a permanent redirect to `APP_URL`; the proxy preserves the path and query. Leave it unset when no redirect is needed.
 
-The example logs mail instead of sending it. Configure a real SMTP provider, including `MAIL_SCHEME`, before setting `FEATURE_REGISTRATION=true` or enabling password reset for users. Public registration defaults to disabled.
+The example logs mail instead of sending it. Configure a real SMTP provider, including `MAIL_SCHEME`, before exposing registration or password reset to users. Password reset is part of the default authentication surface. Public registration defaults to disabled and requires `FEATURE_REGISTRATION=true`.
 
-`/up` proves that Laravel can serve a request. `/ready` also checks the configured database and cache. Use `/ready` to decide whether a deployment should receive traffic; do not restart PHP merely because an external dependency is temporarily unavailable.
+`/up` proves that Laravel can serve a request. `/ready` also checks the configured database and cache. Both endpoints are stateless and do not issue session or CSRF cookies. Use `/ready` to decide whether a deployment should receive traffic; do not restart PHP merely because an external dependency is temporarily unavailable.
 
 ## Local production smoke
 
-The automated smoke builds every image, starts the complete production topology, applies migrations, sends a Task through Horizon and restores a PostgreSQL backup into a new database:
+The automated smoke builds every image and starts the full production topology. It applies migrations, sends one Task through Horizon, inserts an orphaned Task for scheduler recovery and restores a PostgreSQL backup into a new database:
 
 ```bash
+bunx playwright install chromium # first browser run only
 bun run test:production
+bun run test:production:browser
 ```
 
-The script uses a separate Compose project and deletes its containers and volumes when it exits.
+The first command exercises HTTP, queues and recovery. The browser variant also proves SSR before hydration, RSC navigation without reload, private Reverb authorization and a Task completion event. Both use a separate Compose project and delete their containers and volumes when they exit.
 
 ## Coolify
 
@@ -55,10 +61,10 @@ The API environment accepts `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, 
 
 ## Response headers
 
-The production proxy sets CSP, HSTS, clickjacking, MIME-sniffing, referrer and browser-permission policies. The CSP allows inline scripts and styles because the current Vinext document bootstrap requires them. Tighten it only after replacing those inline blocks with nonces or hashes and rerunning the production browser flow.
+The production proxy rejects unknown Host authorities with `421`, while the optional legacy host redirects first. It sets CSP, HSTS, clickjacking, MIME-sniffing, referrer and browser-permission policies. CSP permits WebSockets only on `APP_HOST`; inline scripts and styles remain because the Vinext bootstrap requires them.
 
 ## Container scan policy
 
-Trivy blocks fixable high and critical findings in application images, Redis and PostgreSQL operating-system packages. The official PostgreSQL image currently bundles `gosu` built with an older Go standard library. Those library findings stay visible as a nonblocking step until the official image is rebuilt or reachability can be justified; they are not silently ignored or marked unaffected without evidence.
+The production images in this snapshot passed the canonical release Trivy gate for fixable high and critical findings. The application owner is responsible for scanning later dependency and image changes. The official PostgreSQL image bundles `gosu` with an older Go standard library, but its [upstream binary scan](https://github.com/tianon/gosu/actions/runs/32607173744) found no reachable vulnerable symbols. The corresponding exceptions apply only to that binary and package version, expire on September 30, 2026, and do not permit new findings.
 
-Coolify recreates services in a regular Docker Compose deployment. This reference does not claim zero downtime. Roll back by selecting the previous source tag and redeploying it; do not roll back the database unless the migration has an explicit reversal plan.
+Coolify recreates services in a regular Docker Compose deployment. This reference does not claim zero downtime. Roll back by selecting a known-good revision or application tag and redeploying it; do not roll back the database unless the migration has an explicit reversal plan.
