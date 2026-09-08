@@ -50,7 +50,7 @@
     "test:workspaces": "bun run --parallel --if-present --filter '*' test"
   },
   "devDependencies": {
-    "lefthook": "2.1.10",
+    "lefthook": "2.1.12",
     "@laravel/multiplex": "0.4.3"
   }
 }
