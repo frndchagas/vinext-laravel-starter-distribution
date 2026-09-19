@@ -65,6 +65,6 @@ The production proxy rejects unknown Host authorities with `421`, while the opti
 
 ## Container scan policy
 
-The production images in this snapshot passed the canonical release Trivy gate for fixable high and critical findings. The application owner is responsible for scanning later dependency and image changes. The official PostgreSQL image bundles `gosu` with an older Go standard library, but its [upstream binary scan](https://github.com/tianon/gosu/actions/runs/32607173744) found no reachable vulnerable symbols. The corresponding exceptions apply only to that binary and package version, expire on September 30, 2026, and do not permit new findings.
+The production images in this snapshot passed the canonical release Trivy gate for fixable high and critical findings. The application owner is responsible for scanning later dependency and image changes. The PostgreSQL image rebuilds upstream `gosu` 1.19 with Go 1.26.8 and verifies privilege dropping during the build. Its OS packages and bundled binaries are scanned without vulnerability exceptions. Redis uses the same image digest in development, integration tests and production, so a cached image cannot silently retain older OS packages.
 
 Coolify recreates services in a regular Docker Compose deployment. This reference does not claim zero downtime. Roll back by selecting a known-good revision or application tag and redeploying it; do not roll back the database unless the migration has an explicit reversal plan.
