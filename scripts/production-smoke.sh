@@ -96,10 +96,14 @@ docker build \
     --tag "vinext-laravel-starter-postgres:$image_tag" \
     .
 
+docker build \
+    --file infra/docker/redis/Dockerfile \
+    --tag "vinext-laravel-starter-redis:$image_tag" \
+    .
+
 "${compose[@]}" up --detach --no-build --wait
 
-redis_image_id=$(docker inspect --format '{{.Image}}' "$("${compose[@]}" ps --quiet redis)")
-docker tag "$redis_image_id" "vinext-laravel-starter-redis:$image_tag"
+"${compose[@]}" exec -T web node --input-type=module - < scripts/braces-security-check.mjs
 
 curl --fail --silent --show-error \
     --dump-header "$headers_file" \

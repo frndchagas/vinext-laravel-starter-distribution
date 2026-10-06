@@ -33,7 +33,7 @@
     "config:check": "composer validate --strict && docker compose config --quiet && bun run coolify:check",
     "coolify:build": "bun run scripts/coolify-compose.mjs",
     "coolify:check": "bun run scripts/coolify-compose.mjs --check",
-    "audit": "bun dedupe --check && bun audit --audit-level=high && composer audit --locked",
+    "audit": "bun dedupe --check && bun run scripts/audit-dependencies.mjs && composer audit --locked",
     "check": "bun run config:check && bun run --parallel format:check lint typecheck test build",
     "contracts:build": "bun run --filter @vinext-laravel-starter/http-contract build && bun run --filter @vinext-laravel-starter/api-client generate && bun run --filter @vinext-laravel-starter/realtime-contract generate",
     "contracts:validate": "bun run --filter @vinext-laravel-starter/realtime-contract validate",
@@ -58,5 +58,8 @@
   "devDependencies": {
     "lefthook": "2.1.14",
     "@laravel/multiplex": "0.4.3"
+  },
+  "patchedDependencies": {
+    "braces@3.0.3": "patches/braces@3.0.3.patch"
   }
 }
